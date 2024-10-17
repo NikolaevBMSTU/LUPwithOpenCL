@@ -16,6 +16,7 @@ CMakeFiles
 *.pdf
 *.mp4
 *.h5
+*.result
 
 # Special programms for tests
 *.log
@@ -33,21 +34,6 @@ CMakeFiles
 *.gch
 *.pch
 
-# Compiled Dynamic libraries
-*.so
-*.dylib
-*.dll
-
-# Fortran module files
-*.mod
-*.smod
-
-# Compiled Static libraries
-*.lai
-*.la
-*.a
-*.lib
-
 # TEX generated files
 *.aux
 *.fdb_latexmk
@@ -55,20 +41,3 @@ CMakeFiles
 *.gz
 *.bbl
 *.blg
-
-# Lex & yacc generated files
-# (flex & bison)
-*.tab.c
-*.tab.h
-*.yy.c
-
-# Executables
-*.exe
-*.out
-*.app
-
-# Executables in Linux
-FBDI
-tools/embeder
-tools/fbdi_cat
-tools/fft

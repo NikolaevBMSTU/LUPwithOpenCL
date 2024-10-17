@@ -1,28 +1,15 @@
-#include "OpenCL-Wrapper/opencl.hpp"
 #include <iostream>
 #include <iomanip>
-#include <chrono>
+#include <ctime>
 
+#include "OpenCL-Wrapper/opencl.hpp"
+#include "OpenCL-Wrapper/kernel.hpp"
 #include "Origin/decsol.hpp"
+#include "utils.hpp"
 
-class Timer {
-
-	public:
-		Timer() : ts {} {}
-
-		void start() {
-			ts = std::chrono::system_clock::now() ;
-		}
-
-		double get() const {
-			auto end = std::chrono::system_clock::now();
-			std::chrono::duration<double> elapsed_seconds = end - ts;
-			return elapsed_seconds.count();
-		}
-
-	private:
-		std::chrono::_V2::system_clock::time_point ts;
-};
+#ifndef OPTIMIZATION_LEVEL
+#define OPTIMIZATION_LEVEL 0
+#endif
 
 // Matrix Triangularization by Gaussian Elimination
 template <typename T>
@@ -161,48 +148,80 @@ void sol_optimized(const int n, T **A, T *b, int *ip)
 	
 } //sol
 
-template<typename T>
-void print_vector(const uint N, T* A) {
-	for (uint i = 0; i < N; i++) {
-		std::cout << A[i] << " ";
-	}
-	std::cout << "\n";
+void log_run(const std::string file_name, const std::size_t size, const double result) {
+	std::ofstream outfile;
+	outfile.open(file_name, std::ios_base::app);
+
+	auto now = std::chrono::system_clock::now();
+	std::time_t time = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+	outfile << std::put_time(std::localtime(&time), "%Y-%m-%d %H:%M:%S") << " ";
+
+	outfile << std::setw(4) << "-O" << OPTIMIZATION_LEVEL << " ";
+	outfile << std::setw(6) << size << " ";
+	outfile << std::setw(12) << std::setprecision(6) << std::right << result << std::endl;
+
+	outfile.close(); 
 }
 
-template <typename T>
-void print_matrix(const uint N, const uint M, T* A) {
-	for (uint i = 0; i < N; i++) {
-		for (uint j = 0; j < M; j++)
-			std::cout << A[i*N+j] << " ";
-		std::cout << "\n";
-	}
+
+std::tuple<std::size_t, std::string, double> parse_result_file(const std::string &s) {
+    std::istringstream iss(s);
+
+	std::string word;
+	iss >> word; // дата
+	iss >> word; // время
+
+	iss >> word; // флаг
+	std::string flag = word;
+
+	std::size_t size;
+	iss >> size;
+	double execution_time;
+	iss >> execution_time;
+
+	return std::make_tuple(size, flag, execution_time);
 }
 
-template<typename T>
-void print_matrix(const uint N, const uint M, T** A) {
-	for (uint i = 0; i < N; i++) {
-		for (uint j = 0; j < M; j++)
-			std::cout << A[i][j] << " ";
-		std::cout << "\n";
-	}
-}
+std::string average_time(const std::string file_name, const std::size_t current_size) {
+	std::ifstream file;
+	file.open(file_name);
+	if (!file.is_open()) exit(1);
 
-template<typename T>
-void print_matrix_along(const uint N, const uint M, T** A, T** B) {
-	for (uint i = 0; i < N; i++) {
-		for (uint j = 0; j < M; j++)
-			std::cout << A[i][j] << " ";
-		std::cout << "\t\t";
-		for (uint j = 0; j < M; j++)
-			std::cout << B[i][j] << " ";
-		std::cout << "\n";
+	std::size_t count { 0 };
+	double sum_time { 0.0 };
+	std::string line;
+	std::string current_flag = "-O" + std::to_string(OPTIMIZATION_LEVEL);
+
+	std::vector<double> sample;
+	while (std::getline(file, line)) {
+		auto [size, flag, execution_time] = parse_result_file(line);
+		if (size == current_size && flag == current_flag) {
+			count++;
+			sum_time += execution_time;
+			sample.push_back(execution_time);
+		}
 	}
+
+	if (count == 0) {
+		return "0.0 ± 0.0";
+	}
+
+	double avg = sum_time / count;
+	double disp { 0 };
+
+	for (std::size_t i = 0; i < count; i++) {
+		disp += (avg - sample[i]) * (avg - sample[i]);
+	}
+
+	disp /= count - 1;
+
+	return std::to_string(avg) + " ± " + std::to_string(3.0 * std::sqrt(disp));
 }
 
 int main() {
 
 	Timer timer {};
-	const uint N = 576u; // size of vectors
+	const uint N = 3600u; // size of vectors
 	#undef ORIGIN_TEST
 	#define BENCHMARK 1
 	#define COMPARE 1
@@ -249,56 +268,75 @@ int main() {
 	print_vector(N, CPU_ip);
 #endif
 
+
+// ========================
+//    Тестовая матрица
+// ========================
+
+double** ORIGIN = new double*[N];
+for(uint i = 0; i < N; i++) {
+	ORIGIN[i] = new double[N];
+	for (uint j = 0; j < N; j++)
+		ORIGIN[i][j] = drand48() * 1000;
+}
+
+
 #ifdef BENCHMARK
-	double** CPU_ORIGIN = new double*[N];
+	std::cout << "========================" << std::endl;
+	std::cout << "====== Origin dec ======" << std::endl;
+	std::cout << "========================" << std::endl << std::endl;
+
 	double** CPU_A = new double*[N];
 	int	CPU_ip[N];
 	int CPU_ier = 0;
 
-	for(uint i = 0; i < N; i++) {
-		CPU_ORIGIN[i] = new double[N];
-		for (uint j = 0; j < N; j++)
-			CPU_ORIGIN[i][j] = drand48() * 1000;
-	}
-
-	for(uint i = 0; i < N; i++) {
+	// initialize memory
+	for(std::size_t i = 0; i < N; i++) {
 		CPU_A[i] = new double[N];
-		for (uint j = 0; j < N; j++)
-			CPU_A[i][j] = CPU_ORIGIN[i][j];
+		for (std::size_t j = 0; j < N; j++)
+			CPU_A[i][j] = ORIGIN[i][j];
 	}
 
-	for(uint n=0u; n<N; n++) {
-		CPU_ip[n] = 0; // initialize memory
+	// initialize memory
+	for(std::size_t i = 0; i < N; i++) {
+		CPU_ip[i] = 0; 
 	}
 
 	timer.start();
 	CPU_ier = dec(N, CPU_A, CPU_ip);
 	auto elapsed_time = timer.get();
 
-	std::cout << "Spend time = " << elapsed_time << std::endl;
+	if (CPU_ier == 0) {
+		log_run("origin_dec.result", N, elapsed_time);
+	}
+
+	std::cout << "Matrix size = " << N << "x" << N << std::endl;
+	std::cout << "Elements number = " << N * N << std::endl;
+	std::cout << "Memory = " << (double)(N * N * sizeof(double)) / 1024 / 1024 << " Mb" << std::endl;
+	std::cout << "Current time = " << elapsed_time << " s" << std::endl;
+	std::cout << "Average time = " << average_time("origin_dec.result", N) << std::endl;
 	// print_vector(N, CPU_ip);
 
 #endif
 
-	std::cout << "============" << std::endl;
-	std::cout << "== OpenCL ==" << std::endl;
-	std::cout << "============" << std::endl;
-
-
-	// ========================
-	// ======== OpenCL ========
-	// ========================
+	std::cout << std::endl;
+	std::cout << "========================" << std::endl;
+	std::cout << "======== OpenCL ========" << std::endl;
+	std::cout << "========================" << std::endl;
+	std::cout << std::endl;
 
 	// for (auto device : get_devices()) {
 	// 	std::cout << device.name << "\n";
 	// }
 
+	Device_Info info = select_device_with_most_flops();
+	cl::CommandQueue cl_queue(info.cl_context, info.cl_device);
 
-	Device device(select_device_with_most_flops()); // compile OpenCL C code for the fastest available device
+	Device device(select_device_with_most_flops(), get_opencl_c_code(opencl_c_container())); // compile OpenCL C code for the fastest available device
 
 	Memory<double> GPU_A(device, N * N); // allocate memory on both host and device
-	Memory<int>	  GPU_ip(device, N);
-	Memory<int>   ier(device, 1);
+	Memory<int>	   GPU_ip(device, N);
+	Memory<int>    GPU_ier(device, 1);
 
 	Memory<int>   id(device, N);
 	Memory<int>   k_act(device, N);
@@ -318,7 +356,7 @@ int main() {
 	
 	for (uint i=0u; i<N; i++) {
 		for(uint j=0u; j<N; j++) {
-			GPU_A[i * N + j] = CPU_ORIGIN[i][j]; // initialize memory
+			GPU_A[i * N + j] = ORIGIN[i][j]; // initialize memory
 		}
 	}
 
@@ -332,25 +370,76 @@ int main() {
 
 	GPU_A.write_to_device();
 	GPU_ip.write_to_device();
-	ier.write_to_device();
 	
-	for (uint k = 0; k < N-1; k++) {
-		Kernel lu_kernel(device, N, N, "lu_kernel", k, N, GPU_A, GPU_ip, ier, id, k_act);
-		lu_kernel.enqueue_run();
-	}
+	// for (uint k = 0; k < N-1; k++) {
+	// 	Kernel lu_kernel(device, N, "lu_kernel", k, N, GPU_A, GPU_ip, GPU_ier, id, k_act);
+	// 	lu_kernel.run();
+	// }
 
-	device.finish_queue();
+	// V2
+	// for (uint k = 0; k < N-1; k++) {
+
+	// 	int m = k;
+	// 	for (int i = k + 1; i < N; ++i) {
+	// 		if (fabs(GPU_A[i * N + k]) > fabs(GPU_A[m * N + k])) m = i;
+	// 	}
+	// 	GPU_ip[k] = m;
+	// 	double t = GPU_A[m * N + k];
+	// 	if (m != k) {
+	// 		GPU_ip[N-1] = -GPU_ip[N-1]; // детерминант
+	// 		GPU_A[m * N + k] = GPU_A[k * N + k];
+	// 		GPU_A[k * N + k] = t;
+	// 	}
+
+	// 	for (uint i = k + 1; i < N; ++i)
+	// 		GPU_A[i * N + k] /= -t;
+
+	// 	GPU_A.write_to_device();
+	// 	GPU_ip.write_to_device();
+
+	// 	Kernel lu_kernel(device, N, "lu_kernel", k, N, GPU_A, GPU_ip, GPU_ier, id, k_act);
+	// 	lu_kernel.run();
+
+	// 	GPU_A.read_from_device();
+	// 	GPU_ip.read_from_device();
+	// }
+	// end V2
+	
+
+	// V3
+	Kernel pivot_kernel(device, "pivot_kernel", get_opencl_c_code(opencl_c_container_pivot_kernel()));
+	Kernel    lu_kernel(device, "lu_kernel", get_opencl_c_code(opencl_c_container()));
+
+	for (uint k = 0; k < N - 1; k++) {
+		// Kernel pivot_kernel(device, 1, "pivot_kernel", get_opencl_c_code(opencl_c_container_pivot_kernel()), k, N, GPU_A, GPU_ip, GPU_ier);
+		// Kernel    lu_kernel(device, N,    "lu_kernel", get_opencl_c_code(opencl_c_container()), 			 k, N, GPU_A, GPU_ip, GPU_ier);
+
+		device.enqueue_kernel(pivot_kernel, 1, k, N, GPU_A, GPU_ip, GPU_ier);
+		device.enqueue_kernel(   lu_kernel, N, k, N, GPU_A, GPU_ip, GPU_ier);
+
+		// cl_queue.enqueueNDRangeKernel(pivot_kernel.cl_kernel, cl::NullRange, cl::NDRange { 1 }, cl::NullRange);
+		// cl_queue.enqueueNDRangeKernel(   lu_kernel.cl_kernel, cl::NullRange, cl::NDRange { N }, cl::NullRange);
+	}
+	// end V3
+
+	cl_queue.finish();
+
+	// device.finish_queue();
 
 	GPU_A.read_from_device(); // copy data from device memory to host memory
 	GPU_ip.read_from_device();
-	ier.read_from_device();
+	GPU_ier.read_from_device();
 	id.read_from_device();
 	k_act.read_from_device();
 
 	elapsed_time = timer.get();
 
+	if (GPU_ier[0] == 0) {
+		log_run("gpu_dec.result", N, elapsed_time);
+	}
+
 	std::cout << "Spend time = " << elapsed_time << std::endl;
-	std::cout << "Result ier = " << ier[0] << std::endl;
+	std::cout << "Result ier = " << GPU_ier[0] << std::endl;
 
 	// std::cout << "id work-items\n";
 	// print_vector(N, id.data());
@@ -367,14 +456,14 @@ int main() {
 
 #ifdef COMPARE
 
-	for (uint i=0u; i<N; i++) {
+	for (std::size_t i= 0; i < N; i++) {
 		if (CPU_ip[i] != GPU_ip[i])
 			throw std::runtime_error("Wrong result IP at i = " + std::to_string(i) +
 				" Expected: " + std::to_string(CPU_ip[i]) + " but actual is " + std::to_string(GPU_ip[i]));
 	}
 
-	for (uint i=0u; i<N; i++) {
-		for(uint j=0; j<N; j++) { 
+	for (std::size_t i = 0; i < N; i++) {
+		for(std::size_t j = 0; j < N; j++) { 
 			if (std::abs((GPU_A[i * N + j] - CPU_A[i][j]) / GPU_A[i * N + j]) > 1e-6)
 				throw std::runtime_error("Wrong result LU at i = " + std::to_string(i) + " j = " + std::to_string(j) +
 					" Expected: " + std::to_string(GPU_A[i * N + j]) + " but actual is " + std::to_string(CPU_A[i][j]));
@@ -395,8 +484,5 @@ int main() {
 
 #endif
 
-	// print_info("Value after kernel execution: C[0] = "+to_string(C[0]));
-
-	// wait();
 	return 0;
 }

@@ -2,7 +2,7 @@
 
 #define WORKGROUP_SIZE 64 // needs to be 64 to fully use AMD GPUs
 //#define PTX
-//#define LOG
+#define LOG
 
 #ifndef _WIN32
 #pragma GCC diagnostic ignored "-Wignored-attributes" // ignore compiler warnings for CL/cl.hpp with g++
@@ -156,7 +156,6 @@ struct Device_Info {
 	inline Device_Info() {}; // default constructor
 };
 
-string get_opencl_c_code(); // implemented in kernel.hpp
 inline void print_device_info(const Device_Info& d) { // print OpenCL device info
 #if defined(_WIN32)
 	const string os = "Windows";
@@ -240,11 +239,28 @@ inline Device_Info select_device_with_id(const uint id, const vector<Device_Info
 	}
 }
 
+class Kernel;
+
 class Device {
 private:
 	cl::Program cl_program;
 	cl::CommandQueue cl_queue;
 	bool exists = false;
+public:
+	Device_Info info;
+	inline Device(const Device_Info& info, const string& opencl_c_code) {
+		print_device_info(info);
+		this->info = info;
+		this->cl_queue = cl::CommandQueue(info.cl_context, info.cl_device); // queue to push commands for the device
+		this->exists = true;
+	}
+	inline Device() {} // default constructor
+	inline void barrier(const vector<Event>* event_waitlist=nullptr, Event* event_returned=nullptr) { cl_queue.enqueueBarrierWithWaitList(event_waitlist, event_returned); }
+	inline void finish_queue() { cl_queue.finish(); }
+	inline cl::Context get_cl_context() const { return info.cl_context; }
+	inline cl::Program get_cl_program() const { return cl_program; }
+	inline cl::CommandQueue get_cl_queue() const { return cl_queue; }
+	inline bool is_initialized() const { return exists; }
 	inline string enable_device_capabilities() const { return // enable FP64/FP16 capabilities if available
 		string(info.patch_nvidia_fp16    ? "\n #define cl_khr_fp16"                : "")+ // Nvidia Pascal and newer GPUs with driver>=520.00 don't report cl_khr_fp16, but do support basic FP16 arithmetic
 		string(info.patch_legacy_gpu_fma ? "\n #define fma(a, b, c) ((a)*(b)+(c))" : "")+ // some old GPUs have terrible fma performance, so replace with a*b+c
@@ -259,40 +275,14 @@ private:
 		"\n #pragma OPENCL EXTENSION cl_khr_int64_base_atomics : enable" // make sure cl_khr_int64_base_atomics extension is enabled
 		"\n #endif"
 	;}
-public:
-	Device_Info info;
-	inline Device(const Device_Info& info, const string& opencl_c_code=get_opencl_c_code()) {
-		print_device_info(info);
-		this->info = info;
-		this->cl_queue = cl::CommandQueue(info.cl_context, info.cl_device); // queue to push commands for the device
-		cl::Program::Sources cl_source;
-		const string kernel_code = enable_device_capabilities()+"\n"+opencl_c_code;
-		cl_source.push_back({ kernel_code.c_str(), kernel_code.length() });
-		this->cl_program = cl::Program(info.cl_context, cl_source);
-		const string build_options = string("-cl-finite-math-only -cl-no-signed-zeros -cl-mad-enable")+(info.patch_intel_gpu_above_4gb ? " -cl-intel-greater-than-4GB-buffer-required" : "");
-#ifndef LOG
-		int error = cl_program.build({ info.cl_device }, (build_options+" -w").c_str()); // compile OpenCL C code, disable warnings
-		if(error) print_warning(cl_program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(info.cl_device)); // print build log
-#else // LOG, generate logfile for OpenCL code compilation
-		int error = cl_program.build({ info.cl_device }, build_options.c_str()); // compile OpenCL C code
-		const string log = cl_program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(info.cl_device);
-		write_file("bin/kernel.log", log); // save build log
-		if((uint)log.length()>2u) print_warning(log); // print build log
-#endif // LOG
-		if(error) print_error("OpenCL C code compilation failed with error code "+to_string(error)+". Make sure there are no errors in kernel.cpp.");
-		else print_info("OpenCL C code successfully compiled.");
-#ifdef PTX // generate assembly (ptx) file for OpenCL code
-		write_file("bin/kernel.ptx", cl_program.getInfo<CL_PROGRAM_BINARIES>()[0]); // save binary (ptx file)
-#endif // PTX
-		this->exists = true;
+
+	template<class... T> inline void enqueue_kernel(Kernel& kernel, const uint N, const T&... parameters) { // accepts Memory<T> objects and fundamental data type constants
+		 
+		kernel.link_parameters(0u, parameters...); // expand variadic template to link kernel parameters
+		// kernel.set_ranges(N);
+
+		kernel.check_for_errors(cl_queue.enqueueNDRangeKernel(kernel.cl_kernel, cl::NullRange, cl::NDRange { N }, cl::NullRange));
 	}
-	inline Device() {} // default constructor
-	inline void barrier(const vector<Event>* event_waitlist=nullptr, Event* event_returned=nullptr) { cl_queue.enqueueBarrierWithWaitList(event_waitlist, event_returned); }
-	inline void finish_queue() { cl_queue.finish(); }
-	inline cl::Context get_cl_context() const { return info.cl_context; }
-	inline cl::Program get_cl_program() const { return cl_program; }
-	inline cl::CommandQueue get_cl_queue() const { return cl_queue; }
-	inline bool is_initialized() const { return exists; }
 };
 
 template<typename T> class Memory {
@@ -541,10 +531,12 @@ public:
 
 class Kernel {
 private:
+	friend Device;
+
+	cl::Program cl_program;
 	ulong N = 0ull; // kernel range
 	uint number_of_parameters = 0u;
 	string name = "";
-	cl::Kernel cl_kernel;
 	cl::NDRange cl_range_global, cl_range_local;
 	cl::CommandQueue cl_queue;
 	inline void check_for_errors(const int error) {
@@ -567,21 +559,39 @@ private:
 		link_parameters(starting_position+1u, parameters...);
 	}
 public:
-	template<class... T> inline Kernel(const Device& device, const ulong N, const string& name, const T&... parameters) { // accepts Memory<T> objects and fundamental data type constants
+	cl::Kernel cl_kernel;
+ 	
+	Kernel(const Device& device, const string& name, const std::string& opencl_c_code) {
 		if(!device.is_initialized()) print_error("No OpenCL Device selected. Call Device constructor.");
 		this->name = name;
-		cl_kernel = cl::Kernel(device.get_cl_program(), name.c_str());
-		link_parameters(0u, parameters...); // expand variadic template to link kernel parameters
-		set_ranges(N);
+
+		// Build kernel
+		cl::Program::Sources cl_source;
+		const string kernel_code = device.enable_device_capabilities()+"\n"+opencl_c_code;
+		cl_source.push_back({ kernel_code.c_str(), kernel_code.length() });
+		this->cl_program = cl::Program(device.info.cl_context, cl_source);
+		const string build_options = string("-cl-finite-math-only -cl-no-signed-zeros -cl-mad-enable")+(device.info.patch_intel_gpu_above_4gb ? " -cl-intel-greater-than-4GB-buffer-required" : "");
+#ifndef LOG
+		int error = cl_program.build({ info.cl_device }, (build_options+" -w").c_str()); // compile OpenCL C code, disable warnings
+		if(error) print_warning(cl_program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(info.cl_device)); // print build log
+#else // LOG, generate logfile for OpenCL code compilation
+		int error = cl_program.build({ device.info.cl_device }, build_options.c_str()); // compile OpenCL C code
+		const string log = cl_program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(device.info.cl_device);
+		write_file("bin/kernel.log", log); // save build log
+		if((uint)log.length()>2u) print_warning(log); // print build log
+#endif // LOG
+		if(error) print_error("OpenCL C code compilation failed with error code "+to_string(error)+". Make sure there are no errors in kernel.cpp.");
+		else print_info("OpenCL C code successfully compiled.");
+#ifdef PTX // generate assembly (ptx) file for OpenCL code
+		write_file("bin/kernel.ptx", cl_program.getInfo<CL_PROGRAM_BINARIES>()[0]); // save binary (ptx file)
+#endif // PTX
+
+		cl_kernel = cl::Kernel(cl_program, name.c_str());
+
+		// todo ??
 		cl_queue = device.get_cl_queue();
 	}
-	template<class... T> inline Kernel(const Device& device, const ulong N, const uint workgroup_size, const string& name, const T&... parameters) { // accepts Memory<T> objects and fundamental data type constants
-		if(!device.is_initialized()) print_error("No OpenCL Device selected. Call Device constructor.");
-		cl_kernel = cl::Kernel(device.get_cl_program(), name.c_str());
-		link_parameters(0u, parameters...); // expand variadic template to link kernel parameters
-		set_ranges(N, (ulong)workgroup_size);
-		cl_queue = device.get_cl_queue();
-	}
+
 	inline Kernel() {} // default constructor
 	inline Kernel& set_ranges(const ulong N, const ulong workgroup_size=(ulong)WORKGROUP_SIZE) {
 		this->N = N;
@@ -602,24 +612,21 @@ public:
 		return *this;
 	}
 	inline Kernel& enqueue_run(const uint t=1u, const vector<Event>* event_waitlist=nullptr, Event* event_returned=nullptr) {
-		// for(uint i=0u; i<cl_range_global[0]/cl_range_local[0]; i++) {
-		// 	check_for_errors(cl_queue.enqueueNDRangeKernel(cl_kernel, cl::NDRange {i * cl_range_local[0]}, cl_range_global, cl_range_local, event_waitlist, event_returned));
-		// }
 		for(uint i=0u; i<t; i++) {
 			check_for_errors(cl_queue.enqueueNDRangeKernel(cl_kernel, cl::NullRange, cl::NDRange { N }, cl::NullRange, event_waitlist, event_returned));
 		}
 		return *this;
 	}
-	inline Kernel& run(const uint t=1u, const vector<Event>* event_waitlist=nullptr, Event* event_returned=nullptr) {
-		enqueue_run(t, event_waitlist, event_returned);
-		finish_queue();
-		return *this;
-	}
-	inline Kernel& operator()(const uint t=1u, const vector<Event>* event_waitlist=nullptr, Event* event_returned=nullptr) {
-		return run(t, event_waitlist, event_returned);
-	}
-	inline Kernel& finish_queue() {
-		cl_queue.finish();
-		return *this;
-	}
+	// inline Kernel& run(const uint t=1u, const vector<Event>* event_waitlist=nullptr, Event* event_returned=nullptr) {
+	// 	enqueue_run(t, event_waitlist, event_returned);
+	// 	finish_queue();
+	// 	return *this;
+	// }
+	// inline Kernel& operator()(const uint t=1u, const vector<Event>* event_waitlist=nullptr, Event* event_returned=nullptr) {
+	// 	return run(t, event_waitlist, event_returned);
+	// }
+	// inline Kernel& finish_queue() {
+	// 	cl_queue.finish();
+	// 	return *this;
+	// }
 };
