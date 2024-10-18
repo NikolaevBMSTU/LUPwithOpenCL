@@ -71,6 +71,42 @@ __kernel void pivot_kernel(const unsigned int k, const unsigned int N, __global 
 );} // ############################################################### end of OpenCL C code #####################################################################
 
 
+string find_max_in_column_kernel() { return R( // ########################## begin of OpenCL C code ####################################################################
+
+
+__kernel void find_max_in_column_kernel(const unsigned int k, const unsigned int N, __global double* A, global int* ip, global int* ier) { // equivalent to "for(uint n=0u; n<N; n++) {", but executed in parallel
+	
+	const uint j = get_global_id(0);
+
+	if (j == 0) {
+		int m = k;
+
+		for (int i = k + 1; i < N; ++i) {
+			if (fabs(A[i * N + k]) > fabs(A[m * N + k])) m = i;
+		}
+
+		ip[k] = m;
+
+		if (A[m * N + k] == 0.0) {
+			*ier = k;
+			ip[N-1] = 0;
+			return;
+		}
+
+		if (m != k) {
+			ip[N-1] = -ip[N-1]; // детерминант
+
+			double t = A[m * N + k];
+			A[m * N + k] = A[k * N + k];
+			A[k * N + k] = t;
+		}
+	}
+}
+
+
+);} // ############################################################### end of OpenCL C code #####################################################################
+
+
 // Новое ядро поиска
 
 // одни поток проходит по строкам в столбце и ищет максимальный элемент

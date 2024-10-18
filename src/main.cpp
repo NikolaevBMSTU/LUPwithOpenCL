@@ -221,7 +221,7 @@ std::string average_time(const std::string file_name, const std::size_t current_
 int main() {
 
 	Timer timer {};
-	const uint N = 3600u; // size of vectors
+	const uint N = 7600u; // size of vectors
 	#undef ORIGIN_TEST
 	#define BENCHMARK 1
 	#define COMPARE 1
@@ -302,6 +302,10 @@ for(uint i = 0; i < N; i++) {
 		CPU_ip[i] = 0; 
 	}
 
+	std::cout << "Matrix size = " << N << "x" << N << std::endl;
+	std::cout << "Elements number = " << N * N << std::endl;
+	std::cout << "Memory = " << (double)(N * N * sizeof(double)) / 1024 / 1024 << " Mb" << std::endl;
+
 	timer.start();
 	CPU_ier = dec(N, CPU_A, CPU_ip);
 	auto elapsed_time = timer.get();
@@ -310,9 +314,6 @@ for(uint i = 0; i < N; i++) {
 		log_run("origin_dec.result", N, elapsed_time);
 	}
 
-	std::cout << "Matrix size = " << N << "x" << N << std::endl;
-	std::cout << "Elements number = " << N * N << std::endl;
-	std::cout << "Memory = " << (double)(N * N * sizeof(double)) / 1024 / 1024 << " Mb" << std::endl;
 	std::cout << "Current time = " << elapsed_time << " s" << std::endl;
 	std::cout << "Average time = " << average_time("origin_dec.result", N) << std::endl;
 	// print_vector(N, CPU_ip);
@@ -329,27 +330,19 @@ for(uint i = 0; i < N; i++) {
 	// 	std::cout << device.name << "\n";
 	// }
 
-	Device_Info info = select_device_with_most_flops();
-	cl::CommandQueue cl_queue(info.cl_context, info.cl_device);
-
 	Device device(select_device_with_most_flops(), get_opencl_c_code(opencl_c_container())); // compile OpenCL C code for the fastest available device
 
 	Memory<double> GPU_A(device, N * N); // allocate memory on both host and device
 	Memory<int>	   GPU_ip(device, N);
 	Memory<int>    GPU_ier(device, 1);
 
-	Memory<int>   id(device, N);
-	Memory<int>   k_act(device, N);
-
-	// Kernel lu_kernel(device, N, "lu_kernel", N, A, ip, ier); // kernel that runs on the device
-
 #ifdef ORIGIN_TEST
 	for(uint n=0u; n<N * N; n++) {
-		A[n] = (n + 1) * 1.0f; // initialize memory
+		GPU_A[n] = (n + 1) * 1.0f; // initialize memory
 	}
 
 	// Для повышения устойчивости?
-	std::swap(A[N * N - 2], A[N * N - 1]);
+	std::swap(GPU_A[N * N - 2], GPU_A[N * N - 1]);
 #endif
 
 #ifdef BENCHMARK
@@ -370,67 +363,23 @@ for(uint i = 0; i < N; i++) {
 
 	GPU_A.write_to_device();
 	GPU_ip.write_to_device();
-	
-	// for (uint k = 0; k < N-1; k++) {
-	// 	Kernel lu_kernel(device, N, "lu_kernel", k, N, GPU_A, GPU_ip, GPU_ier, id, k_act);
-	// 	lu_kernel.run();
-	// }
 
-	// V2
-	// for (uint k = 0; k < N-1; k++) {
-
-	// 	int m = k;
-	// 	for (int i = k + 1; i < N; ++i) {
-	// 		if (fabs(GPU_A[i * N + k]) > fabs(GPU_A[m * N + k])) m = i;
-	// 	}
-	// 	GPU_ip[k] = m;
-	// 	double t = GPU_A[m * N + k];
-	// 	if (m != k) {
-	// 		GPU_ip[N-1] = -GPU_ip[N-1]; // детерминант
-	// 		GPU_A[m * N + k] = GPU_A[k * N + k];
-	// 		GPU_A[k * N + k] = t;
-	// 	}
-
-	// 	for (uint i = k + 1; i < N; ++i)
-	// 		GPU_A[i * N + k] /= -t;
-
-	// 	GPU_A.write_to_device();
-	// 	GPU_ip.write_to_device();
-
-	// 	Kernel lu_kernel(device, N, "lu_kernel", k, N, GPU_A, GPU_ip, GPU_ier, id, k_act);
-	// 	lu_kernel.run();
-
-	// 	GPU_A.read_from_device();
-	// 	GPU_ip.read_from_device();
-	// }
-	// end V2
-	
-
-	// V3
-	Kernel pivot_kernel(device, "pivot_kernel", get_opencl_c_code(opencl_c_container_pivot_kernel()));
-	Kernel    lu_kernel(device, "lu_kernel", get_opencl_c_code(opencl_c_container()));
+	Kernel pivot_kernel(device, "pivot_kernel", get_opencl_c_code(opencl_c_container_pivot_kernel()), 5);
+	Kernel    lu_kernel(device,    "lu_kernel", get_opencl_c_code(opencl_c_container()), 5);
 
 	for (uint k = 0; k < N - 1; k++) {
-		// Kernel pivot_kernel(device, 1, "pivot_kernel", get_opencl_c_code(opencl_c_container_pivot_kernel()), k, N, GPU_A, GPU_ip, GPU_ier);
-		// Kernel    lu_kernel(device, N,    "lu_kernel", get_opencl_c_code(opencl_c_container()), 			 k, N, GPU_A, GPU_ip, GPU_ier);
+		pivot_kernel.set_parameters(0u, k, N, GPU_A, GPU_ip, GPU_ier);
+		   lu_kernel.set_parameters(0u, k, N, GPU_A, GPU_ip, GPU_ier);
 
-		device.enqueue_kernel(pivot_kernel, 1, k, N, GPU_A, GPU_ip, GPU_ier);
-		device.enqueue_kernel(   lu_kernel, N, k, N, GPU_A, GPU_ip, GPU_ier);
-
-		// cl_queue.enqueueNDRangeKernel(pivot_kernel.cl_kernel, cl::NullRange, cl::NDRange { 1 }, cl::NullRange);
-		// cl_queue.enqueueNDRangeKernel(   lu_kernel.cl_kernel, cl::NullRange, cl::NDRange { N }, cl::NullRange);
+		device.enqueue_kernel(pivot_kernel.cl_kernel, 1);
+		device.enqueue_kernel(   lu_kernel.cl_kernel, N);
 	}
-	// end V3
 
-	cl_queue.finish();
-
-	// device.finish_queue();
+	device.finish_queue();
 
 	GPU_A.read_from_device(); // copy data from device memory to host memory
 	GPU_ip.read_from_device();
 	GPU_ier.read_from_device();
-	id.read_from_device();
-	k_act.read_from_device();
 
 	elapsed_time = timer.get();
 
@@ -438,8 +387,11 @@ for(uint i = 0; i < N; i++) {
 		log_run("gpu_dec.result", N, elapsed_time);
 	}
 
-	std::cout << "Spend time = " << elapsed_time << std::endl;
-	std::cout << "Result ier = " << GPU_ier[0] << std::endl;
+	std::cout << "Current time = " << elapsed_time << " s" << std::endl;
+	std::cout << "Average time = " << average_time("gpu_dec.result", N) << std::endl;
+
+	// std::cout << "Spend time = " << elapsed_time << std::endl;
+	// std::cout << "Result ier = " << GPU_ier[0] << std::endl;
 
 	// std::cout << "id work-items\n";
 	// print_vector(N, id.data());
@@ -480,9 +432,5 @@ for(uint i = 0; i < N; i++) {
 	std::cout << "ier = " << ier[0] << std::endl;
 #endif
 
-#ifdef BENCHMARK
-
-#endif
-
-	return 0;
+	return EXIT_SUCCESS;
 }

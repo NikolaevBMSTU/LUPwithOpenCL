@@ -239,7 +239,6 @@ inline Device_Info select_device_with_id(const uint id, const vector<Device_Info
 	}
 }
 
-class Kernel;
 
 class Device {
 private:
@@ -275,13 +274,16 @@ public:
 		"\n #pragma OPENCL EXTENSION cl_khr_int64_base_atomics : enable" // make sure cl_khr_int64_base_atomics extension is enabled
 		"\n #endif"
 	;}
+	// inline void check_for_errors(const int error, const std::string& name) {
+	// 	if(error==-48) print_error("There is no OpenCL kernel with name \""+name+"(...)\" in the OpenCL C code! Check spelling!");
+	// 	if(error<-48&&error>-53) print_error("Parameters for OpenCL kernel \""+name+"(...)\" don't match between C++ and OpenCL C!");
+	// 	if(error==-54) print_error("Workgrop size "+std::to_string(N)+" for OpenCL kernel \""+name+"(...)\" is invalid! Global " + std::to_string(cl_range_global[0]) + " local " + std::to_string(cl_range_local[0]));
+	// 	if(error!=0) print_error("OpenCL kernel \""+name+"(...)\" failed with error code "+to_string(error)+"!");
+	// }
 
-	template<class... T> inline void enqueue_kernel(Kernel& kernel, const uint N, const T&... parameters) { // accepts Memory<T> objects and fundamental data type constants
-		 
-		kernel.link_parameters(0u, parameters...); // expand variadic template to link kernel parameters
-		// kernel.set_ranges(N);
-
-		kernel.check_for_errors(cl_queue.enqueueNDRangeKernel(kernel.cl_kernel, cl::NullRange, cl::NDRange { N }, cl::NullRange));
+	template<class... T> inline void enqueue_kernel( cl::Kernel& kernel, const uint N, const T&... parameters) { 
+		auto err = cl_queue.enqueueNDRangeKernel(kernel, cl::NullRange, cl::NDRange { N }, cl::NullRange);
+		if (err != 0) throw std::runtime_error("OpenCL error code = " + err);
 	}
 };
 
@@ -531,14 +533,13 @@ public:
 
 class Kernel {
 private:
-	friend Device;
+	// friend Device;
 
 	cl::Program cl_program;
 	ulong N = 0ull; // kernel range
 	uint number_of_parameters = 0u;
 	string name = "";
 	cl::NDRange cl_range_global, cl_range_local;
-	cl::CommandQueue cl_queue;
 	inline void check_for_errors(const int error) {
 		if(error==-48) print_error("There is no OpenCL kernel with name \""+name+"(...)\" in the OpenCL C code! Check spelling!");
 		if(error<-48&&error>-53) print_error("Parameters for OpenCL kernel \""+name+"(...)\" don't match between C++ and OpenCL C!");
@@ -561,9 +562,10 @@ private:
 public:
 	cl::Kernel cl_kernel;
  	
-	Kernel(const Device& device, const string& name, const std::string& opencl_c_code) {
+	Kernel(const Device& device, const string& name, const std::string& opencl_c_code, const uint number_of_parameters) {
 		if(!device.is_initialized()) print_error("No OpenCL Device selected. Call Device constructor.");
 		this->name = name;
+		this->number_of_parameters = number_of_parameters;
 
 		// Build kernel
 		cl::Program::Sources cl_source;
@@ -587,9 +589,6 @@ public:
 #endif // PTX
 
 		cl_kernel = cl::Kernel(cl_program, name.c_str());
-
-		// todo ??
-		cl_queue = device.get_cl_queue();
 	}
 
 	inline Kernel() {} // default constructor
@@ -597,8 +596,6 @@ public:
 		this->N = N;
 		cl_range_global = cl::NDRange(((N+workgroup_size-1ull)/workgroup_size)*workgroup_size); // make global range a multiple of local range
 		cl_range_local = cl::NDRange(workgroup_size);
-		// std::cout << "cl_range_global = " << std::to_string(cl_range_global[0]);
-		// std::cout << "cl_range_local = " << std::to_string(cl_range_local[0]);
 		return *this;
 	}
 	inline const ulong range() const { return N; }
@@ -611,22 +608,4 @@ public:
 		link_parameters(starting_position, parameters...); // expand variadic template to link kernel parameters
 		return *this;
 	}
-	inline Kernel& enqueue_run(const uint t=1u, const vector<Event>* event_waitlist=nullptr, Event* event_returned=nullptr) {
-		for(uint i=0u; i<t; i++) {
-			check_for_errors(cl_queue.enqueueNDRangeKernel(cl_kernel, cl::NullRange, cl::NDRange { N }, cl::NullRange, event_waitlist, event_returned));
-		}
-		return *this;
-	}
-	// inline Kernel& run(const uint t=1u, const vector<Event>* event_waitlist=nullptr, Event* event_returned=nullptr) {
-	// 	enqueue_run(t, event_waitlist, event_returned);
-	// 	finish_queue();
-	// 	return *this;
-	// }
-	// inline Kernel& operator()(const uint t=1u, const vector<Event>* event_waitlist=nullptr, Event* event_returned=nullptr) {
-	// 	return run(t, event_waitlist, event_returned);
-	// }
-	// inline Kernel& finish_queue() {
-	// 	cl_queue.finish();
-	// 	return *this;
-	// }
 };
