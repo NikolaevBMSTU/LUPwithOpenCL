@@ -132,7 +132,7 @@ for(uint i = 0; i < N; i++) {
 		auto elapsed_time = timer.get();
 
 		std::cout << "Current time = " << elapsed_time << " s" << std::endl;
-		std::cout << "Average time = " << average_time("origin_dec.result", N, "CPU") << std::endl;
+		std::cout << "Average time = " << average_time_string("origin_dec.result", N, "CPU", std::to_string(OPTIMIZATION_LEVEL)) << std::endl;
 
 		// print_matrix(N, N, ORIGIN);
 		// print_vector(N, ORIGIN_VECTOR);
@@ -247,8 +247,8 @@ for(uint i = 0; i < N; i++) {
 		}
 
 		std::cout << "Current time = " << full_time << " s" << std::endl;
-		std::cout << "Average time = " << average_time("gpu_dec.result", N,
-				std::regex_replace(device.info.vendor, std::regex("Intel\\(R\\) Corporation"), "Intel")) << std::endl;
+		std::cout << "Average time = " << average_time_string("gpu_dec.result", N,
+				std::regex_replace(device.info.vendor, std::regex("Intel\\(R\\) Corporation"), "Intel"), std::to_string(OPTIMIZATION_LEVEL)) << std::endl;
 		std::cout << "Copy   to device time = " << memory_to_device_time << " s" << std::endl;
 		std::cout << "Copy from device time = " << memory_from_device_time << " s" << std::endl;
 
@@ -385,8 +385,8 @@ for(uint i = 0; i < N; i++) {
 		auto full_time = timer.get();
 
 		std::cout << "Current time = " << full_time << " s" << std::endl;
-		std::cout << "Average time = " << average_time("gpu_bicgstab.result", N,
-				std::regex_replace(device.vendor(), std::regex("Intel\\(R\\) Corporation"), "Intel")) << std::endl;
+		std::cout << "Average time = " << average_time_string("gpu_bicgstab.result", N,
+				std::regex_replace(device.vendor(), std::regex("Intel\\(R\\) Corporation"), "Intel"), std::to_string(OPTIMIZATION_LEVEL)) << std::endl;
 		std::cout << "Copy   to device time = " << memory_to_device_time << " s" << std::endl;
 		std::cout << "Copy from device time = " << memory_from_device_time << " s" << std::endl;
 
