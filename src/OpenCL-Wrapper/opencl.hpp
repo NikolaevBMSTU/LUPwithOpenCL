@@ -167,15 +167,15 @@ inline void print_device_info(const Device_Info& d) { // print OpenCL device inf
 	const string os = "unknown operating system";
 #endif // operating system
 	println("\r|----------------.------------------------------------------------------------|");
-	println("| Device ID      | "+alignl(58, to_string(d.id)             )+" |");
-	println("| Device Name    | "+alignl(58, d.name                      )+" |");
-	println("| Device Vendor  | "+alignl(58, d.vendor                    )+" |");
-	println("| Device Driver  | "+alignl(58, d.driver_version+" ("+os+")")+" |");
-	println("| OpenCL Version | "+alignl(58, d.opencl_c_version          )+" |");
-	println("| Compute Units  | "+alignl(58, to_string(d.compute_units)+" at "+to_string(d.clock_frequency)+" MHz ("+to_string(d.cores)+" cores, "+to_string(d.tflops, 3)+" TFLOPs/s)")+" |");
-	println("| Memory, Cache  | "+alignl(58, to_string(d.memory)+" MB, "+to_string(d.global_cache)+" KB global / "+to_string(d.local_cache)+" KB local")+" |");
-	println("| Buffer Limits  | "+alignl(58, to_string(d.max_global_buffer)+" MB global, "+to_string(d.max_constant_buffer)+" KB constant")+" |");
-	println("|----------------'------------------------------------------------------------|");
+	println(  "| Device ID      | "+alignl(58, to_string(d.id)             )+" |");
+	println(  "| Device Name    | "+alignl(58, d.name                      )+" |");
+	println(  "| Device Vendor  | "+alignl(58, d.vendor                    )+" |");
+	println(  "| Device Driver  | "+alignl(58, d.driver_version+" ("+os+")")+" |");
+	println(  "| OpenCL Version | "+alignl(58, d.opencl_c_version          )+" |");
+	println(  "| Compute Units  | "+alignl(58, to_string(d.compute_units)+" at "+to_string(d.clock_frequency)+" MHz ("+to_string(d.cores)+" cores, "+to_string(d.tflops, 3)+" TFLOPs/s)")+" |");
+	println(  "| Memory, Cache  | "+alignl(58, to_string(d.memory)+" MB, "+to_string(d.global_cache)+" KB global / "+to_string(d.local_cache)+" KB local")+" |");
+	println(  "| Buffer Limits  | "+alignl(58, to_string(d.max_global_buffer)+" MB global, "+to_string(d.max_constant_buffer)+" KB constant")+" |");
+	println(  "|----------------'------------------------------------------------------------|");
 }
 inline vector<Device_Info> get_devices(const bool print_info=true) { // returns a vector of all available OpenCL devices
 	set_environment_variable((char*)"GPU_SINGLE_ALLOC_PERCENT=100"); // fix maximum buffer allocation size limit for AMD GPUs
@@ -281,8 +281,13 @@ public:
 	// 	if(error!=0) print_error("OpenCL kernel \""+name+"(...)\" failed with error code "+to_string(error)+"!");
 	// }
 
-	template<class... T> inline void enqueue_kernel( cl::Kernel& kernel, const uint N, const T&... parameters) { 
+	inline void enqueue_kernel( cl::Kernel& kernel, const uint N) { 
 		auto err = cl_queue.enqueueNDRangeKernel(kernel, cl::NullRange, cl::NDRange { N }, cl::NullRange);
+		if (err != 0) throw std::runtime_error("OpenCL error code = " + err);
+	}
+
+	inline void enqueue_kernel( cl::Kernel& kernel, const uint offset, const uint N) { 
+		auto err = cl_queue.enqueueNDRangeKernel(kernel, cl::NDRange { offset }, cl::NDRange { N }, cl::NullRange);
 		if (err != 0) throw std::runtime_error("OpenCL error code = " + err);
 	}
 };
