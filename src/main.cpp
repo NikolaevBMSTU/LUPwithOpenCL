@@ -2,6 +2,8 @@
 #include <iomanip>
 #include <ctime>
 
+#include "Own/bicgstab.hpp"
+
 #undef VIENNACL_WITH_OPENCL
 
 #include "viennacl/linalg/bicgstab.hpp"
@@ -25,14 +27,15 @@
 
 int main() {
 
-	const uint N = 260; // size of vectors
+	const uint N = 2600u; // size of vectors
 	#undef ORIGIN_TEST
 	#define COMPARE
 	#define CHECK_SOLUTION
 	#define BENCHMARK
 	#define CPU_DECSOL_BENCHMARK
 	#define GPU_DECSOL_BENCHMARK
-	#define GPU_BICGSTAB_BENCHMARK
+	// #define GPU_BICGSTAB_BENCHMARK
+	// #define CPU_BICGSTAB_BENCHMARK
 
 	// =====================================
 	// ==== Решение в исходном варианте ====
@@ -104,7 +107,6 @@ for(uint i = 0; i < N; i++) {
 
 		double** CPU_A = new double*[N];
 		double*  CPU_b = new double[N];
-		double*  CPU_result = new double[N];
 		int*	 CPU_ip = new int[N];
 		int CPU_ier = 0;
 
@@ -172,6 +174,7 @@ for(uint i = 0; i < N; i++) {
 		Device device(get_devices()[0], get_opencl_c_code(opencl_c_container())); // compile OpenCL C code for the fastest available device
 
 		Memory<double> GPU_A(device, N * N); // allocate memory on both host and device
+		Memory<double> GPU_b(device, N);
 		Memory<int>	   GPU_ip(device, N);
 		Memory<int>    GPU_ier(device, 1);
 
@@ -188,6 +191,7 @@ for(uint i = 0; i < N; i++) {
 				GPU_A[i * N + j] = ORIGIN[i][j]; // initialize memory
 			}
 
+			GPU_b[i] = ORIGIN_VECTOR[i];
 			GPU_ip[i] = 1;
 		}
 
@@ -195,9 +199,13 @@ for(uint i = 0; i < N; i++) {
 
 #endif
 
-		Kernel search_kernel(device, "find_max_in_column_kernel", get_opencl_c_code(find_max_in_column_kernel_2()), 5);
+		Kernel search_kernel(device, "find_max_in_column_kernel", get_opencl_c_code(find_max_in_column_kernel_2()), 6);
 		Kernel divide_kernel(device,    "identify_column_kernel", get_opencl_c_code(identify_column_kernel()), 5);
 		Kernel     lu_kernel(device,    			 "lu_kernel", get_opencl_c_code(opencl_c_container()), 5);
+		Kernel   swap_kernel(device,    		   "swap_kernel", get_opencl_c_code(swap_kernel_code()), 3);
+		Kernel devide_kernel(device,   		     "devide_kernel", get_opencl_c_code(devide_kernel_code()), 4);
+		Kernel forward_kernel(device, "forward_substitution_kernel", get_opencl_c_code(forward_substitution()), 4);
+		Kernel    back_kernel(device,    "back_substitution_kernel", get_opencl_c_code(back_substitution()), 4);
 
 		println(  "|----------------'------------------------------------------------------------|");
 
@@ -213,12 +221,14 @@ for(uint i = 0; i < N; i++) {
 		memory_timer.start();
 
 		GPU_A.write_to_device();
+		GPU_b.write_to_device();
 		GPU_ip.write_to_device();
 
 		auto memory_to_device_time = memory_timer.get();
 
+		// LUP decomposition
 		for (uint k = 0; k < N - 1; k++) {
-			search_kernel.set_parameters(0u, k, N, GPU_A, GPU_ip, GPU_ier);
+			search_kernel.set_parameters(0u, k, N, GPU_A, GPU_b, GPU_ip, GPU_ier);
 			divide_kernel.set_parameters(0u, k, N, GPU_A, GPU_ip, GPU_ier);
 			    lu_kernel.set_parameters(0u, k, N, GPU_A, GPU_ip, GPU_ier);
 
@@ -227,14 +237,36 @@ for(uint i = 0; i < N; i++) {
 			device.enqueue_kernel(    lu_kernel.cl_kernel, N);
 		}
 
+		// прямая подстановка
+		for (uint k = 0; k < N - 1; k++) {
+			swap_kernel.set_parameters(0u, k, GPU_b, GPU_ip);
+			device.enqueue_kernel(swap_kernel.cl_kernel, 1);
+			
+			forward_kernel.set_parameters(0u, k, N, GPU_A, GPU_b);
+			device.enqueue_kernel(forward_kernel.cl_kernel, N);
+		}
+
+		// обратная подстановка
+		for (uint k = 0; k < N - 1; k++) {
+			devide_kernel.set_parameters(0u, k, N, GPU_A, GPU_b);
+			device.enqueue_kernel(devide_kernel.cl_kernel, 1);
+			
+			back_kernel.set_parameters(0u, k, N, GPU_A, GPU_b);
+			device.enqueue_kernel(back_kernel.cl_kernel, N);
+		}
+
 		device.finish_queue();
 
 
 		memory_timer.start();
 
 		GPU_A.read_from_device(); // copy data from device memory to host memory
+		GPU_b.read_from_device();
 		GPU_ip.read_from_device();
 		GPU_ier.read_from_device();
+
+		// Последний шаг
+		GPU_b[0] = GPU_b[0] / GPU_A[0 * N + 0];
 
 		device.finish_queue();
 
@@ -252,14 +284,6 @@ for(uint i = 0; i < N; i++) {
 		std::cout << "Copy   to device time = " << memory_to_device_time << " s" << std::endl;
 		std::cout << "Copy from device time = " << memory_from_device_time << " s" << std::endl;
 
-		// std::cout << "Spend time = " << elapsed_time << std::endl;
-		// std::cout << "Result ier = " << GPU_ier[0] << std::endl;
-
-		// std::cout << "id work-items\n";
-		// print_vector(N, id.data());
-		// std::cout << "k\n";
-		// print_vector(N, k_act.data());
-
 		std::cout << std::endl;
 
 		// std::cout << "Сравнение CPU_ip и GPU_ip\n";
@@ -270,11 +294,11 @@ for(uint i = 0; i < N; i++) {
 
 #ifdef COMPARE
 
-		// for (std::size_t i= 0; i < N; i++) {
-		// 	if (CPU_ip[i] != GPU_ip[i])
-		// 		throw std::runtime_error("Wrong result IP at i = " + std::to_string(i) +
-		// 			" Expected: " + std::to_string(CPU_ip[i]) + " but actual is " + std::to_string(GPU_ip[i]));
-		// }
+		for (std::size_t i= 0; i < N; i++) {
+			if (CPU_ip[i] != GPU_ip[i])
+				throw std::runtime_error("Wrong result IP at i = " + std::to_string(i) +
+					" Expected: " + std::to_string(CPU_ip[i]) + " but actual is " + std::to_string(GPU_ip[i]));
+		}
 
 		for (std::size_t i = 0; i < N; i++) {
 			for(std::size_t j = 0; j < N; j++) { 
@@ -286,14 +310,17 @@ for(uint i = 0; i < N; i++) {
 
 #endif
 
-	#ifdef CHECK_SOLUTION_2222
+	#ifdef CHECK_SOLUTION
+
+		// print_vector(N, &CPU_b[0]);
+		// print_vector(N, &GPU_b[0]);
 
 		for (std::size_t i = 0; i < N; i++) {
 
 			double res { 0 };
 
 			for (std::size_t j = 0; j < N; j++) {
-				res += ORIGIN[i][j] * GPU_result_on_host[i];
+				res += ORIGIN[i][j] * GPU_b[j];
 			}
 
 			if (std::abs((res - ORIGIN_VECTOR[i]) / ORIGIN_VECTOR[i]) > 1e-6)
@@ -430,7 +457,89 @@ for(uint i = 0; i < N; i++) {
 	log_run("gpu_bicgstab.result", std::regex_replace(device.vendor(), std::regex("Intel\\(R\\) Corporation"), "Intel"), N, full_time);
 
 	}
-#endif // GPU_DECSOL_BENCHMARK
+#endif // GPU_BICGSTAB_BENCHMARK
+
+#ifdef CPU_BICGSTAB_BENCHMARK
+	{
+		std::cout << std::endl;
+		std::cout << "=========================" << std::endl;
+		std::cout << "==== My Own BiCGStab ====" << std::endl;
+		std::cout << "=========================" << std::endl << std::endl;
+
+		std::cout << "Matrix size = " << N << "x" << N << std::endl;
+		std::cout << "Elements number = " << N * N << std::endl;
+		std::cout << "Memory = " << (double)(N * N * sizeof(double)) / 1024 / 1024 << " Mb" << std::endl;
+
+		ublas::matrix<double> CPU_A(N, N);
+		ublas::vector<double> CPU_rhs(N);
+		ublas::vector<double> CPU_result(N);
+
+		for (std::size_t i = 0; i < N; i++) {
+			for(std::size_t j = 0; j < N; j++) {
+				CPU_A(i,j) = ORIGIN[i][j]; // initialize memory
+			}
+
+			CPU_rhs[i] = ORIGIN_VECTOR[i];
+			// CPU_result[i] = 1;
+			CPU_result[i] = CPU_b[i] * (1.0 + drand48());
+		}
+		
+	
+		timer.start();
+
+		auto [solved, iter, resudial] = BiCGSTAB(CPU_A, CPU_result, CPU_rhs, 1000, 1e-6);
+
+		std::cout << "Return code " << solved << std::endl;
+		std::cout << "Final resudial " << resudial << std::endl;
+		std::cout << "Performed iterations " << iter << std::endl;
+
+		auto full_time = timer.get();
+
+
+		std::cout << "Current time = " << full_time << " s" << std::endl;
+		std::cout << "Average time = " << average_time_string("cpu_bicgstab.result", N, "CPU", std::to_string(OPTIMIZATION_LEVEL)) << std::endl;
+
+		std::cout << std::endl;
+
+	#ifdef COMPARE
+
+		// for (uint i = 0; i < N; i++) {
+		// 	std::cout << GPU_result[i] << " ";
+		// }
+		// std::cout << "\n";
+
+		print_vector(N, &CPU_b[0]);
+		print_vector(N, &CPU_result[0]);
+
+		// for (std::size_t i = 0; i < N; i++) {
+		// 	if (std::abs((CPU_b[i] - GPU_result_on_host[i]) / CPU_b[i]) > 1e-6)
+		// 		throw std::runtime_error("Wrong result LU at i = " + std::to_string(i) +
+		// 			" Expected: " + std::to_string(CPU_b[i]) + " but actual is " + std::to_string(GPU_result_on_host[i]));
+		// }
+
+	#endif
+
+	#ifdef CHECK_SOLUTION
+
+		for (std::size_t i = 0; i < N; i++) {
+
+			double res { 0 };
+
+			for (std::size_t j = 0; j < N; j++) {
+				res += ORIGIN[i][j] * CPU_result[j];
+			}
+
+			if (std::abs((res - ORIGIN_VECTOR[i]) / ORIGIN_VECTOR[i]) > 1e-6)
+					throw std::runtime_error("Wrong solution result at i = " + std::to_string(i) +
+						" Expected: " + std::to_string(ORIGIN_VECTOR[i]) + " but actual is " + std::to_string(res));
+		}
+
+	#endif
+
+	log_run("cpu_bicgstab.result", "CPU", N, full_time);
+
+	}
+#endif // CPU_BICGSTAB_BENCHMARK
 
 	return EXIT_SUCCESS;
 }

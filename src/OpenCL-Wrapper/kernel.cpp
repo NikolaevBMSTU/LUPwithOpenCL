@@ -174,7 +174,7 @@ __kernel void find_max_in_column_kernel(const unsigned int k, const unsigned int
 string find_max_in_column_kernel_2() { return R( // ########################## begin of OpenCL C code ####################################################################
 
 
-__kernel void find_max_in_column_kernel(const unsigned int k, const unsigned int N, __global double* A, global int* ip, global int* ier) { // equivalent to "for(uint n=0u; n<N; n++) {", but executed in parallel
+__kernel void find_max_in_column_kernel(const unsigned int k, const unsigned int N, __global double* A, __global double* b, global int* ip, global int* ier) { // equivalent to "for(uint n=0u; n<N; n++) {", but executed in parallel
 	
 	int m = k;
 	for (int i = k + 1; i < N; ++i) {
@@ -187,7 +187,7 @@ __kernel void find_max_in_column_kernel(const unsigned int k, const unsigned int
 	if (m != k) {
 		ip[N-1] = -ip[N-1]; // детерминант?
 
-		//
+		// swap diagonal element A
 		double t = A[m * N + k];
 		A[m * N + k] = A[k * N + k];
 		A[k * N + k] = t;
@@ -197,8 +197,6 @@ __kernel void find_max_in_column_kernel(const unsigned int k, const unsigned int
 			ip[N-1] = 0;
 			return;
 		}
-
-		// todo add row swap for vector b
 	}
 }
 
@@ -214,7 +212,7 @@ __kernel void identify_column_kernel(const unsigned int k, const unsigned int N,
 	const uint i = get_global_id(0);
 
 	// for (uint i = k + 1; i < N; ++i)
-	if (i >= k + 1)
+	if (i >= k + 1 && i < N)
 		A[i * N + k] /= - A[k * N + k];
 
 }
@@ -223,75 +221,71 @@ __kernel void identify_column_kernel(const unsigned int k, const unsigned int N,
 );} // ############################################################### end of OpenCL C code #####################################################################
 
 
-// Новое ядро поиска
 
-// одни поток проходит по строкам в столбце и ищет максимальный элемент
-// if (j == 0) {
-// 	int m = k;
-// 	for (int i = k + 1; i < N; ++i) {
-// 		if (fabs(A[i * N + k]) > fabs(A[m * N + k])) m = i;
-// 	}
-// 	ip[k] = m;
-// 	double t = A[m * N + k];
-// 	if (m != k) {
-// 		ip[N-1] = -ip[N-1]; // детерминант
-// 		A[m * N + k] = A[k * N + k];
-// 		A[k * N + k] = t;
-// 	}
-// 	if (t == 0.0) {
-// 		*ier = k;
-// 		ip[N-1] = 0;
-// 		return;
-// 	}
+string swap_kernel_code() { return R( // ########################## begin of OpenCL C code ####################################################################
 
-// 	k_act[k] = k;
 
-// 	for (uint i = k + 1; i < N; ++i)
-// 		A[i * N + k] /= -t;
-// }
+__kernel void swap_kernel(const unsigned int k, __global double* b, __global int* ip) { // equivalent to "for(uint n=0u; n<N; n++) {", but executed in parallel
+	
+	int m = ip[k];
+	double t = b[m];
+	b[m] = b[k];
+	b[k] = t;
+
+}
+
+
+);} // ############################################################### end of OpenCL C code #####################################################################
 
 
 
-// РАБОЧИЙ ВАРИАНТ для N < cores_number
-// const uint j = get_global_id(0);
 
-// 	for (uint k = 0; k < N - 1; ++k) { // проход по столбцам
 
-// 		// одни поток проходит по строкам в столбце и ищет максимальный элемент
-// 		if (j == 0) {
-// 			int m = k;
-// 			for (int i = k + 1; i < N; ++i) {
-// 				if (fabs(A[i * N + k]) > fabs(A[m * N + k])) m = i;
-// 			}
-// 			ip[k] = m;
-// 			double t = A[m * N + k];
-// 			if (m != k) {
-// 				ip[N-1] = -ip[N-1]; // детерминант
-// 				A[m * N + k] = A[k * N + k];
-// 				A[k * N + k] = t;
-// 			}
-// 			if (t == 0.0) {
-// 				*ier = k;
-// 				ip[N-1] = 0;
-// 				return;
-// 			}
+string forward_substitution() { return R( // ########################## begin of OpenCL C code ####################################################################
 
-// 			for (int i = k + 1; i < N; ++i)
-// 				A[i * N + k] /= -t;
-// 		}
 
-// 		barrier(CLK_GLOBAL_MEM_FENCE);
+__kernel void forward_substitution_kernel(const unsigned int k, const unsigned int N, __global double* A, __global double* b) { // equivalent to "for(uint n=0u; n<N; n++) {", but executed in parallel
+	
+	const uint i = get_global_id(0);
 
-// 		if (j >= k + 1 && j < N) {
+	if (i >= k + 1 && i < N) {
+		b[i] += A[i * N + k] * b[k];
+	}
 
-// 			// std::swap(A[m * N + j], A[k * N + j]);
-// 			double tmp = A[ip[k] * N + j];
-// 			A[ip[k] * N + j] = A[k * N + j];
-// 			A[k * N + j] = tmp;
+}
 
-// 			if (tmp != 0.0)
-// 				for (int i = k + 1; i < N; ++i)
-// 					A[i * N + j] += A[i * N + k] * tmp;
-// 		}
 
-// 		barrier(CLK_GLOBAL_MEM_FENCE);
+);} // ############################################################### end of OpenCL C code #####################################################################
+
+
+string devide_kernel_code() { return R( // ########################## begin of OpenCL C code ####################################################################
+
+
+__kernel void devide_kernel(const unsigned int k, const unsigned int N, __global double* A, __global double* b) { // equivalent to "for(uint n=0u; n<N; n++) {", but executed in parallel
+	
+	uint kb = N - k - 1;
+	b[kb] /= A[kb * N + kb];
+
+}
+
+
+);} // ############################################################### end of OpenCL C code #####################################################################
+
+
+string back_substitution() { return R( // ########################## begin of OpenCL C code ####################################################################
+
+
+__kernel void back_substitution_kernel(const unsigned int k, const unsigned int N, __global double* A, __global double* b) { // equivalent to "for(uint n=0u; n<N; n++) {", but executed in parallel
+	
+	const uint i = get_global_id(0);
+
+	uint kb = N - k - 1;
+
+	if (i >= 0 && i < kb) {
+		b[i] += A[i * N + kb] * -b[kb];
+	}
+
+}
+
+
+);} // ############################################################### end of OpenCL C code #####################################################################
