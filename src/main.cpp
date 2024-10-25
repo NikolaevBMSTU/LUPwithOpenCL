@@ -27,7 +27,7 @@
 
 int main() {
 
-	const uint N = 2600u; // size of vectors
+	const uint N = 576; // size of vectors
 	#undef ORIGIN_TEST
 	#define COMPARE
 	#define CHECK_SOLUTION
@@ -199,13 +199,13 @@ for(uint i = 0; i < N; i++) {
 
 #endif
 
-		Kernel search_kernel(device, "find_max_in_column_kernel", get_opencl_c_code(find_max_in_column_kernel_2()), 6);
-		Kernel divide_kernel(device,    "identify_column_kernel", get_opencl_c_code(identify_column_kernel()), 5);
-		Kernel     lu_kernel(device,    			 "lu_kernel", get_opencl_c_code(opencl_c_container()), 5);
-		Kernel   swap_kernel(device,    		   "swap_kernel", get_opencl_c_code(swap_kernel_code()), 3);
-		Kernel devide_kernel(device,   		     "devide_kernel", get_opencl_c_code(devide_kernel_code()), 4);
-		Kernel forward_kernel(device, "forward_substitution_kernel", get_opencl_c_code(forward_substitution()), 4);
-		Kernel    back_kernel(device,    "back_substitution_kernel", get_opencl_c_code(back_substitution()), 4);
+		Kernel search_kernel(device, "find_max_in_column_kernel", get_opencl_c_code(find_max_in_column_kernel_2()));
+		Kernel divide_kernel(device,    "identify_column_kernel", get_opencl_c_code(identify_column_kernel()));
+		Kernel     lu_kernel(device,    			 "lu_kernel", get_opencl_c_code(opencl_c_container()));
+		Kernel   swap_kernel(device,    		   "swap_kernel", get_opencl_c_code(swap_kernel_code()));
+		Kernel devide_kernel(device,   		     "devide_kernel", get_opencl_c_code(devide_kernel_code()));
+		Kernel forward_kernel(device, "forward_substitution_kernel", get_opencl_c_code(forward_substitution()));
+		Kernel    back_kernel(device,    "back_substitution_kernel", get_opencl_c_code(back_substitution()));
 
 		println(  "|----------------'------------------------------------------------------------|");
 
@@ -220,17 +220,21 @@ for(uint i = 0; i < N; i++) {
 
 		memory_timer.start();
 
-		GPU_A.write_to_device();
-		GPU_b.write_to_device();
+		GPU_A.enqueue_write_to_device();
+		GPU_b.enqueue_write_to_device();
 		GPU_ip.write_to_device();
 
 		auto memory_to_device_time = memory_timer.get();
 
+		search_kernel.add_parameters(0, N, GPU_A, GPU_b, GPU_ip, GPU_ier);
+		divide_kernel.add_parameters(0, N, GPU_A, 		 GPU_ip, GPU_ier);
+			lu_kernel.add_parameters(0, N, GPU_A, 		 GPU_ip, GPU_ier);
+
 		// LUP decomposition
 		for (uint k = 0; k < N - 1; k++) {
-			search_kernel.set_parameters(0u, k, N, GPU_A, GPU_b, GPU_ip, GPU_ier);
-			divide_kernel.set_parameters(0u, k, N, GPU_A, GPU_ip, GPU_ier);
-			    lu_kernel.set_parameters(0u, k, N, GPU_A, GPU_ip, GPU_ier);
+			search_kernel.set_parameters(0, k);
+			divide_kernel.set_parameters(0, k);
+				lu_kernel.set_parameters(0, k);
 
 			device.enqueue_kernel(search_kernel.cl_kernel, 1);
 			device.enqueue_kernel(divide_kernel.cl_kernel, N);
@@ -238,20 +242,26 @@ for(uint i = 0; i < N; i++) {
 		}
 
 		// прямая подстановка
+		   swap_kernel.add_parameters(0, GPU_b, GPU_ip);
+		forward_kernel.add_parameters(0, N, GPU_A, GPU_b);
+
 		for (uint k = 0; k < N - 1; k++) {
-			swap_kernel.set_parameters(0u, k, GPU_b, GPU_ip);
-			device.enqueue_kernel(swap_kernel.cl_kernel, 1);
+			   swap_kernel.set_parameters(0, k);
+			forward_kernel.set_parameters(0, k);
 			
-			forward_kernel.set_parameters(0u, k, N, GPU_A, GPU_b);
+			device.enqueue_kernel(swap_kernel.cl_kernel, 1);
 			device.enqueue_kernel(forward_kernel.cl_kernel, N);
 		}
 
 		// обратная подстановка
+		devide_kernel.add_parameters(0, N, GPU_A, GPU_b);
+		  back_kernel.add_parameters(0, N, GPU_A, GPU_b);
+
 		for (uint k = 0; k < N - 1; k++) {
-			devide_kernel.set_parameters(0u, k, N, GPU_A, GPU_b);
-			device.enqueue_kernel(devide_kernel.cl_kernel, 1);
+			devide_kernel.set_parameters(0, k);
+			  back_kernel.set_parameters(0, k);
 			
-			back_kernel.set_parameters(0u, k, N, GPU_A, GPU_b);
+			device.enqueue_kernel(devide_kernel.cl_kernel, 1);
 			device.enqueue_kernel(back_kernel.cl_kernel, N);
 		}
 
@@ -260,9 +270,9 @@ for(uint i = 0; i < N; i++) {
 
 		memory_timer.start();
 
-		GPU_A.read_from_device(); // copy data from device memory to host memory
-		GPU_b.read_from_device();
-		GPU_ip.read_from_device();
+		GPU_A.enqueue_read_from_device(); // copy data from device memory to host memory
+		GPU_b.enqueue_read_from_device();
+		GPU_ip.enqueue_read_from_device();
 		GPU_ier.read_from_device();
 
 		// Последний шаг

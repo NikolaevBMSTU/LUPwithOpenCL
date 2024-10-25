@@ -99,10 +99,11 @@ __kernel void pivot_kernel(const unsigned int k, const unsigned int N, __global 
 string find_max_in_column_kernel() { return R( // ########################## begin of OpenCL C code ####################################################################
 
 
-__kernel void find_max_in_column_kernel(const unsigned int k, const unsigned int N, __global double* A, global int* ip,
-		global int* ier, __local int* tmp_ips) { // equivalent to "for(uint n=0u; n<N; n++) {", but executed in parallel
+__kernel void find_max_in_column_kernel(const unsigned int k, const unsigned int N, __global double* A, global int* ip, global int* ier) { // equivalent to "for(uint n=0u; n<N; n++) {", but executed in parallel
 	
 	const uint lid = get_global_id(0);
+
+	__local int tmp_ips[N];
 
 	bool check_last = false;
 
@@ -137,13 +138,13 @@ __kernel void find_max_in_column_kernel(const unsigned int k, const unsigned int
 
 		int m = tmp_ips[lid];
 
-		if (m != k) {
-			ip[N-1] = -ip[N-1]; // детерминант
+		// if (m != k) {
+		// 	ip[N-1] = -ip[N-1]; // детерминант
 
-			double t = A[m * N + k];
-			A[m * N + k] = A[k * N + k];
-			A[k * N + k] = t;
-		}
+		// 	double t = A[m * N + k];
+		// 	A[m * N + k] = A[k * N + k];
+		// 	A[k * N + k] = t;
+		// }
 
 		ip[k] = m ; // save row number of max element
 
@@ -162,7 +163,6 @@ __kernel void find_max_in_column_kernel(const unsigned int k, const unsigned int
 				return;
 			}
 
-			// todo add row swap for vector b
 		}
 	}
 }
