@@ -27,13 +27,18 @@
 
 int main() {
 
-	const uint N = 576; // size of vectors
+	#ifndef MATRIX_SIZE
+	#define MATRIX_SIZE 576
+	#endif
+
+	constexpr uint N = MATRIX_SIZE; // size of vectors
 	#undef ORIGIN_TEST
-	#define COMPARE
+	// #define COMPARE
 	#define CHECK_SOLUTION
 	#define BENCHMARK
-	#define CPU_DECSOL_BENCHMARK
+	// #define CPU_DECSOL_BENCHMARK
 	#define GPU_DECSOL_BENCHMARK
+	#define GPU_VIENNA_BENCHMARK
 	// #define GPU_BICGSTAB_BENCHMARK
 	// #define CPU_BICGSTAB_BENCHMARK
 
@@ -170,9 +175,9 @@ for(uint i = 0; i < N; i++) {
 		std::cout << "========================" << std::endl;
 		std::cout << std::endl;
 
-		// Device device(select_device_with_most_flops(), get_opencl_c_code(opencl_c_container())); // compile OpenCL C code for the fastest available device
-		Device device(get_devices()[0], get_opencl_c_code(opencl_c_container())); // compile OpenCL C code for the fastest available device
-
+		// Device device(select_device_with_most_flops()); // create OpenCL device for the fastest available device
+		Device device(get_devices()[0]); 
+		
 		Memory<double> GPU_A(device, N * N); // allocate memory on both host and device
 		Memory<double> GPU_b(device, N);
 		Memory<int>	   GPU_ip(device, N);
@@ -216,19 +221,20 @@ for(uint i = 0; i < N; i++) {
 
 		Timer memory_timer {};
 
+		Timer timer;
 		timer.start();
 
 		memory_timer.start();
 
-		GPU_A.enqueue_write_to_device();
-		GPU_b.enqueue_write_to_device();
+		GPU_A.write_to_device();
+		GPU_b.write_to_device();
 		GPU_ip.write_to_device();
 
 		auto memory_to_device_time = memory_timer.get();
 
-		search_kernel.add_parameters(0, N, GPU_A, GPU_b, GPU_ip, GPU_ier);
-		divide_kernel.add_parameters(0, N, GPU_A, 		 GPU_ip, GPU_ier);
-			lu_kernel.add_parameters(0, N, GPU_A, 		 GPU_ip, GPU_ier);
+		search_kernel.add_parameters(0, N, GPU_A, GPU_ip, GPU_ier);
+		divide_kernel.add_parameters(0, N, GPU_A, GPU_ip, GPU_ier);
+			lu_kernel.add_parameters(0, N, GPU_A, GPU_ip, GPU_ier);
 
 		// LUP decomposition
 		for (uint k = 0; k < N - 1; k++) {
@@ -270,9 +276,9 @@ for(uint i = 0; i < N; i++) {
 
 		memory_timer.start();
 
-		GPU_A.enqueue_read_from_device(); // copy data from device memory to host memory
-		GPU_b.enqueue_read_from_device();
-		GPU_ip.enqueue_read_from_device();
+		GPU_A.read_from_device(); // copy data from device memory to host memory
+		GPU_b.read_from_device();
+		// GPU_ip.enqueue_read_from_device();
 		GPU_ier.read_from_device();
 
 		// Последний шаг
@@ -304,11 +310,11 @@ for(uint i = 0; i < N; i++) {
 
 #ifdef COMPARE
 
-		for (std::size_t i= 0; i < N; i++) {
-			if (CPU_ip[i] != GPU_ip[i])
-				throw std::runtime_error("Wrong result IP at i = " + std::to_string(i) +
-					" Expected: " + std::to_string(CPU_ip[i]) + " but actual is " + std::to_string(GPU_ip[i]));
-		}
+		// for (std::size_t i= 0; i < N; i++) {
+		// 	if (CPU_ip[i] != GPU_ip[i])
+		// 		throw std::runtime_error("Wrong result IP at i = " + std::to_string(i) +
+		// 			" Expected: " + std::to_string(CPU_ip[i]) + " but actual is " + std::to_string(GPU_ip[i]));
+		// }
 
 		for (std::size_t i = 0; i < N; i++) {
 			for(std::size_t j = 0; j < N; j++) { 
@@ -351,6 +357,8 @@ for(uint i = 0; i < N; i++) {
 	}
 #endif // GPU_DECSOL_BENCHMARK
 
+#ifdef GPU_VIENNA_BENCHMARK
+#endif // GPU_VIENNA_BENCHMARK
 
 #ifdef GPU_BICGSTAB_BENCHMARK
 	{

@@ -1,6 +1,6 @@
 #pragma once
 
-//#define PTX
+#define PTX
 #define LOG
 
 #ifndef _WIN32
@@ -298,22 +298,19 @@ inline Device_Info select_device_with_id(const uint id, const vector<Device_Info
 
 class Device {
 private:
-	cl::Program cl_program;
 	cl::CommandQueue cl_queue;
 	bool exists = false;
 public:
 	Device_Info info;
-	inline Device(const Device_Info& info, const string& opencl_c_code) {
+	inline Device(const Device_Info& info) {
 		print_device_info(info);
 		this->info = info;
 		this->cl_queue = cl::CommandQueue(info.cl_context, info.cl_device); // queue to push commands for the device
 		this->exists = true;
 	}
 	inline Device() {} // default constructor
-	inline void barrier(const vector<Event>* event_waitlist=nullptr, Event* event_returned=nullptr) { cl_queue.enqueueBarrierWithWaitList(event_waitlist, event_returned); }
 	inline void finish_queue() { cl_queue.finish(); }
 	inline cl::Context get_cl_context() const { return info.cl_context; }
-	inline cl::Program get_cl_program() const { return cl_program; }
 	inline cl::CommandQueue get_cl_queue() const { return cl_queue; }
 	inline bool is_initialized() const { return exists; }
 	inline string enable_device_capabilities() const { return // enable FP64/FP16 capabilities if available
@@ -498,31 +495,17 @@ public:
 	inline const T operator()(const ulong i) const { return host_buffer[i]; }
 	inline const T operator()(const ulong i, const uint dimension) const { return host_buffer[i+(ulong)dimension*N]; } // array of structures
 
-	inline void read_from_device(const bool blocking=true, const vector<Event>* event_waitlist=nullptr, Event* event_returned=nullptr) {
-		if(host_buffer_exists&&device_buffer_exists) cl_queue.enqueueReadBuffer(device_buffer, blocking, 0ull, capacity(), (void*)host_buffer, event_waitlist, event_returned);
-	}
-	inline void write_to_device(const bool blocking=true, const vector<Event>* event_waitlist=nullptr, Event* event_returned=nullptr) {
-		if(host_buffer_exists&&device_buffer_exists) cl_queue.enqueueWriteBuffer(device_buffer, blocking, 0ull, capacity(), (void*)host_buffer, event_waitlist, event_returned);
-	}
-	inline void read_from_device(const ulong offset, const ulong length, const bool blocking=true, const vector<Event>* event_waitlist=nullptr, Event* event_returned=nullptr) {
-        if (host_buffer_exists && device_buffer_exists) {
-            const ulong safe_offset = min(offset, range()), safe_length = min(length, range() - safe_offset);
-            if (safe_length > 0ull)
-                cl_queue.enqueueReadBuffer(device_buffer, blocking, safe_offset * sizeof(T), safe_length * sizeof(T),
-                                           (void*)(host_buffer + safe_offset), event_waitlist, event_returned);
-        }
+    inline void read_from_device(const bool blocking = true) {
+        if (host_buffer_exists && device_buffer_exists)
+            cl_queue.enqueueReadBuffer(device_buffer, blocking, 0ull, capacity(), (void*)host_buffer, nullptr, nullptr);
     }
-	inline void write_to_device(const ulong offset, const ulong length, const bool blocking=true, const vector<Event>* event_waitlist=nullptr, Event* event_returned=nullptr) {
-		if(host_buffer_exists&&device_buffer_exists) {
-			const ulong safe_offset=min(offset, range()), safe_length=min(length, range()-safe_offset);
-			if(safe_length>0ull) cl_queue.enqueueWriteBuffer(device_buffer, blocking, safe_offset*sizeof(T), safe_length*sizeof(T), (void*)(host_buffer+safe_offset), event_waitlist, event_returned);
-		}
-	}
+    inline void write_to_device(const bool blocking = true) {
+        if (host_buffer_exists && device_buffer_exists)
+            cl_queue.enqueueWriteBuffer(device_buffer, blocking, 0ull, capacity(), (void*)host_buffer, nullptr, nullptr);
+    }
 	
-	inline void enqueue_read_from_device(const vector<Event>* event_waitlist=nullptr, Event* event_returned=nullptr) { read_from_device(false, event_waitlist, event_returned); }
-	inline void enqueue_write_to_device(const vector<Event>* event_waitlist=nullptr, Event* event_returned=nullptr) { write_to_device(false, event_waitlist, event_returned); }
-	inline void enqueue_read_from_device(const ulong offset, const ulong length, const vector<Event>* event_waitlist=nullptr, Event* event_returned=nullptr) { read_from_device(offset, length, false, event_waitlist, event_returned); }
-	inline void enqueue_write_to_device(const ulong offset, const ulong length, const vector<Event>* event_waitlist=nullptr, Event* event_returned=nullptr) { write_to_device(offset, length, false, event_waitlist, event_returned); }
+	inline void enqueue_read_from_device() { read_from_device(false); }
+	inline void enqueue_write_to_device() { write_to_device(false); }
 	
 	inline void finish_queue() { cl_queue.finish(); }
 	inline const cl::Buffer& get_cl_buffer() const { return device_buffer; }

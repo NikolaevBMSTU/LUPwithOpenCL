@@ -19,7 +19,7 @@ __kernel void lu_kernel(const unsigned int k, const unsigned int N, __global dou
 	
 	const uint j = get_global_id(0);
 
-	if (j >= k + 1) { // позволяет использовать working_groups, а общее work_items может быть больше N
+	if (j >= k + 1 && j < N) { // позволяет использовать working_groups, а общее work_items может быть больше N
 
 		// std::swap(A[m * N + j], A[k * N + j]);
 		double tmp = A[ip[k] * N + j];
@@ -174,7 +174,7 @@ __kernel void find_max_in_column_kernel(const unsigned int k, const unsigned int
 string find_max_in_column_kernel_2() { return R( // ########################## begin of OpenCL C code ####################################################################
 
 
-__kernel void find_max_in_column_kernel(const unsigned int k, const unsigned int N, __global double* A, __global double* b, global int* ip, global int* ier) { // equivalent to "for(uint n=0u; n<N; n++) {", but executed in parallel
+__kernel void find_max_in_column_kernel(const unsigned int k, const unsigned int N, __global double* A, global int* ip, global int* ier) { // equivalent to "for(uint n=0u; n<N; n++) {", but executed in parallel
 	
 	int m = k;
 	for (int i = k + 1; i < N; ++i) {
@@ -211,7 +211,6 @@ __kernel void identify_column_kernel(const unsigned int k, const unsigned int N,
 	
 	const uint i = get_global_id(0);
 
-	// for (uint i = k + 1; i < N; ++i)
 	if (i >= k + 1 && i < N)
 		A[i * N + k] /= - A[k * N + k];
 
@@ -257,6 +256,27 @@ __kernel void forward_substitution_kernel(const unsigned int k, const unsigned i
 
 );} // ############################################################### end of OpenCL C code #####################################################################
 
+string vec_forward_substitution() { return R( // ########################## begin of OpenCL C code ####################################################################
+
+
+__kernel void vec_forward_substitution_kernel(const unsigned int k, const unsigned int N, __global double* A, __global double* b) { // equivalent to "for(uint n=0u; n<N; n++) {", but executed in parallel
+	
+	const uint i = 4 * get_global_id(0);
+
+	if (i >= k + 1 && i < N) {
+		double4 b4 = vload(i, b);
+		double4 A4 = vload(i * N + k, A);
+
+		b4 += A4 * b[k];
+		vstore4(b4, i, b);
+	}
+
+}
+
+
+);} // ############################################################### end of OpenCL C code #####################################################################
+
+
 
 string devide_kernel_code() { return R( // ########################## begin of OpenCL C code ####################################################################
 
@@ -289,3 +309,27 @@ __kernel void back_substitution_kernel(const unsigned int k, const unsigned int 
 
 
 );} // ############################################################### end of OpenCL C code #####################################################################
+
+string vec_back_substitution() { return R( // ########################## begin of OpenCL C code ####################################################################
+
+
+__kernel void vec_back_substitution_kernel(const unsigned int k, const unsigned int N, __global double* A, __global double* b) { // equivalent to "for(uint n=0u; n<N; n++) {", but executed in parallel
+	
+	const uint i = 4 * get_global_id(0);
+
+	uint kb = N - k - 1;
+
+	if (i >= 0 && i < kb) {
+		double4 b4 = vload(i, b);
+		double4 A4 = vload(i * N + kb, A);
+
+		b4 += A4 * -b[kb];
+
+		vstore4(b4, i, b);
+	}
+
+}
+
+
+);} // ############################################################### end of OpenCL C code #####################################################################
+
