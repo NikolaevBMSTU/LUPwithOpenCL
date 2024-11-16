@@ -143,8 +143,9 @@ std::tuple<double, double> average_time(const std::string file_name, const std::
 
 	disp /= count - 1;
 
-	// return std::to_string(avg) + " ± " + std::to_string(3.0 * std::sqrt(disp));
-	return std::make_tuple(avg, 3 * disp);
+	disp = std::sqrt(disp);
+
+	return std::make_tuple(avg, 3.0 * disp);
 }
 
 std::string average_time_string(const std::string file_name, const std::size_t current_size,

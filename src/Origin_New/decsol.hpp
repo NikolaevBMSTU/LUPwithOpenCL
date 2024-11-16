@@ -15,20 +15,26 @@ code provided by:
 
  ***************************************************************************/
 
-#ifndef _DECSOL_H_
-#define _DECSOL_H_
+#ifndef _DECSOL_NEW_H_
+#define _DECSOL_NEW_H_
 
 // Matrix Triangularization by Gaussian Elimination
-int dec(const int n, double **A, int *ip);
+int dec_row(const int n, double *A, int *ip);
 
 // Solution of linear system A*x = b
-void sol(const int n, double **A, double *b, int *ip);
+void sol_row(const int n, double *A, double *b, int *ip);
 
-// Matrix Triangularization by Gaussian Elimination for complex matrices
-int decc(const int n, double **AR, double **AI, int *ip);
+// Matrix Triangularization by Gaussian Elimination
+int dec_column(const int n, double *A, int *ip);
 
-// Solution of linear system A*x = b -- complex matrices
-void solc(const int n, double **AR, double **AI, double *br,
-	double *bi, int *ip);
+// Solution of linear system A*x = b
+void sol_column(const int n, double *A, double *b, int *ip);
 
-#endif /* _DECSOL_H_ */
+// // Matrix Triangularization by Gaussian Elimination for complex matrices
+// int decc(const int n, double **AR, double **AI, int *ip);
+
+// // Solution of linear system A*x = b -- complex matrices
+// void solc(const int n, double **AR, double **AI, double *br,
+// 	double *bi, int *ip);
+
+#endif /* _DECSOL_NEW_H_ */

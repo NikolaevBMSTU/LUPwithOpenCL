@@ -6,7 +6,7 @@
 #include <unordered_map>
 #include <set>
 
-#include "utils.hpp"
+#include "src/utils.hpp"
 
 void prepare(std::string input_file, std::string output_file, std::string vendor_name) {
 	std::ifstream input;
@@ -45,4 +45,5 @@ int main() {
 	prepare("origin_dec.result", "cpu.result", "CPU");
 	prepare("gpu_dec.result", "intel.result", "Intel");
 	prepare("gpu_dec.result", "amd.result", "AMD");
+	prepare("gpu_vienna.result", "vienna.result", "Intel");
 }
