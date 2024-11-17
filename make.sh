@@ -8,12 +8,12 @@ rm -f ${TARGET} # prevent execution of old version if compiling fails
 SRC="src/*.cpp src/Origin/*.cpp src/Origin_New/*.cpp src/LUP/*.cpp src/OpenCL-Wrapper/*.cpp"
 INC="-I./external/OpenCL/include -I./src/OpenCL-Wrapper -I./external/ViennaCL -IF:\\cygwin64\\usr\\x86_64-w64-mingw32\\sys-root\\mingw\\include\\Eigen\\src\\misc"
 LIB="-pthread -L./external/OpenCL/lib -lOpenCL -llapack -lblas -lm -lgfortran -lquadmath --static"
-OLEVEL=0
+OLEVEL=2
 DEBUG="-g"
 # -static-libstdc++
 
 if [ $# -eq 0 ]; then
-    MATRIX_SIZE=576
+    MATRIX_SIZE=3600
 else
 	MATRIX_SIZE=$1
 fi

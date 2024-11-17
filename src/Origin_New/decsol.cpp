@@ -140,7 +140,7 @@ void sol_row(const int n, double *A, double *b, int *ip)
 				b[i] += A[i + n * kb]*t;
 		}
 	}
-	b[0] = b[0]/A[0 + n * 0];
+	b[0] = b[0]/A[0];
 	
 	return;
 	

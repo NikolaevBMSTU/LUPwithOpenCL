@@ -192,7 +192,7 @@ for(uint i = 0; i < N; i++) {
 	{
 		std::cout << std::endl;
 		std::cout << "========================" << std::endl;
-		std::cout << "=== Origin row dec ===" << std::endl;
+		std::cout << "=== Origin row decsol ==" << std::endl;
 		std::cout << "========================" << std::endl << std::endl;
 
 		double* CPU_A  = new double[N * N];

@@ -9,6 +9,9 @@
 #include <fstream>
 #include <iomanip>
 #include <chrono>
+#include <tuple>
+#include <vector>
+#include <regex>
 
 #include <cmath>
 
@@ -151,7 +154,14 @@ std::tuple<double, double> average_time(const std::string file_name, const std::
 std::string average_time_string(const std::string file_name, const std::size_t current_size,
 		const std::string vendor_name, const std::string optimization_level) {
 	auto [time, error] = average_time(file_name, current_size, vendor_name, optimization_level);
-	return std::to_string(time) + " ± " + std::to_string(error);
+	return std::to_string(time) + " " + u8"±" + " " + std::to_string(error);
+}
+
+std::string transform_vendor_name(const std::string vendor_name) {
+	auto tmp = vendor_name;
+	tmp = std::regex_replace(tmp, std::regex("Intel\\(R\\) Corporation"), "Intel");
+	tmp = std::regex_replace(tmp, std::regex("Advanced Micro Devices, Inc."), "AMD");
+	return tmp;
 }
 
 #endif

@@ -7,6 +7,7 @@
 
 string lu_kernel_code();
 string find_max_in_column_kernel();
+string find_max_in_column_kernel_opt();
 string identify_column_kernel();
 string swap_kernel_code();
 string devide_kernel_code();
