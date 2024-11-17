@@ -3,11 +3,21 @@
 #define PTX
 #define LOG
 
-#ifndef _WIN32
+#ifdef _WIN32
+#ifdef __MINGW32__
+#pragma GCC diagnostic push 
 #pragma GCC diagnostic ignored "-Wignored-attributes" // ignore compiler warnings for CL/cl.hpp with g++
 #endif // _WIN32
+#endif // __MINGW32__
 
 #include <CL/cl.hpp> // OpenCL 1.0, 1.1, 1.2
+
+#ifdef _WIN32
+#ifdef __MINGW32__
+#pragma GCC diagnostic pop  // restore compiler warnings with g++
+#endif // _WIN32
+#endif // __MINGW32__
+
 #include "utilities.hpp"
 
 using cl::Event;
@@ -348,19 +358,17 @@ template<typename T> class Memory {
 private:
 	ulong N = 0ull; // buffer length
 	uint d = 1u; // buffer dimensions
+
 	bool host_buffer_exists = false;
 	bool device_buffer_exists = false;
 	bool external_host_buffer = false;
+
 	T* host_buffer = nullptr; // host buffer
 	cl::Buffer device_buffer; // device buffer
 	Device* device = nullptr; // pointer to linked Device
+
 	cl::CommandQueue cl_queue; // command queue
-	// inline void initialize_auxiliary_pointers() {
-	// 	/********/ x = s0 = host_buffer; /******/ if(d>0x4u) s4 = host_buffer+N*0x4ull; if(d>0x8u) s8 = host_buffer+N*0x8ull; if(d>0xCu) sC = host_buffer+N*0xCull;
-	// 	if(d>0x1u) y = s1 = host_buffer+N; /****/ if(d>0x5u) s5 = host_buffer+N*0x5ull; if(d>0x9u) s9 = host_buffer+N*0x9ull; if(d>0xDu) sD = host_buffer+N*0xDull;
-	// 	if(d>0x2u) z = s2 = host_buffer+N*0x2ull; if(d>0x6u) s6 = host_buffer+N*0x6ull; if(d>0xAu) sA = host_buffer+N*0xAull; if(d>0xEu) sE = host_buffer+N*0xEull;
-	// 	if(d>0x3u) w = s3 = host_buffer+N*0x3ull; if(d>0x7u) s7 = host_buffer+N*0x7ull; if(d>0xBu) sB = host_buffer+N*0xBull; if(d>0xFu) sF = host_buffer+N*0xFull;
-	// }
+
 	inline void allocate_device_buffer(Device& device, const bool allocate_device) {
 		this->device = &device;
 		this->cl_queue = device.get_cl_queue();
@@ -518,7 +526,7 @@ private:
 	string name = "";
 	inline void check_for_errors(const int error) {
 		if(error==-48) print_error("There is no OpenCL kernel with name \""+name+"(...)\" in the OpenCL C code! Check spelling!");
-		if(error<-48&&error>-53) print_error("Parameters for OpenCL kernel \""+name+"(...)\" don't match between C++ and OpenCL C!");
+		if(error<-48&&error>-53) print_error("Parameters for OpenCL kernel \""+name+"(...)\" don't match between C++ and OpenCL C! Error code: " + std::to_string(error));
 		if(error!=0) print_error("OpenCL kernel \""+name+"(...)\" failed with error code "+to_string(error)+"!");
 	}
 	template<typename T> inline void link_parameter(const uint position, const Memory<T>& memory) {

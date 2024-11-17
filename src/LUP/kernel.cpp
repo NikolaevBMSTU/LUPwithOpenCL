@@ -1,21 +1,12 @@
 #include "kernel.hpp" // note: unbalanced round brackets () are not allowed and string literals can't be arbitrarily long, so periodically interrupt with )+R(
+
 #include "../OpenCL-Wrapper/syntax_highlight.hpp"
 
-// string get_opencl_c_code(std::string r) {
-// 	r = replace(r, " ", "\n"); // replace all spaces by new lines
-// 	r = replace(r, "#ifdef\n", "#ifdef "); // except for the arguments after some preprocessor options that need to be in the same line
-// 	r = replace(r, "#ifndef\n", "#ifndef ");
-// 	r = replace(r, "#define\n", "#define "); // #define with two arguments will not work
-// 	r = replace(r, "#if\n", "#if "); // don't leave any spaces in arguments
-// 	r = replace(r, "#elif\n", "#elif "); // don't leave any spaces in arguments
-// 	r = replace(r, "#pragma\n", "#pragma ");
-// 	return "\n"+r;
-// }
 
- string column_opencl_c_container() { return R( // ########################## begin of OpenCL C code ####################################################################
+ string lu_kernel_code() { return R( // ########################## begin of OpenCL C code ####################################################################
 
 
-__kernel void lu_kernel(const unsigned int k, const unsigned int N, __global double* A, global int* ip, global int* ier) { // equivalent to "for(uint n=0u; n<N; n++) {", but executed in parallel
+__kernel void lu_kernel(const uint k, const uint N, __global double* A, __global int* ip, __global int* ier) { // equivalent to "for(uint n=0u; n<N; n++) {", but executed in parallel
 	
 	const uint j = get_global_id(0);
 
@@ -40,10 +31,10 @@ __kernel void lu_kernel(const unsigned int k, const unsigned int N, __global dou
 );} // ############################################################### end of OpenCL C code #####################################################################
 
 
- string column_find_max_in_column_kernel_2() { return R( // ########################## begin of OpenCL C code ####################################################################
+ string find_max_in_column_kernel() { return R( // ########################## begin of OpenCL C code ####################################################################
 
 
-__kernel void find_max_in_column_kernel(const unsigned int k, const unsigned int N, __global double* A, global int* ip, global int* ier) { // equivalent to "for(uint n=0u; n<N; n++) {", but executed in parallel
+__kernel void find_max_in_column_kernel(const uint k, const uint N, __global double* A, __global int* ip, __global int* ier) { // equivalent to "for(uint n=0u; n<N; n++) {", but executed in parallel
 	
 	int m = k;
 	for (int i = k + 1; i < N; ++i) {
@@ -73,10 +64,10 @@ __kernel void find_max_in_column_kernel(const unsigned int k, const unsigned int
 );} // ############################################################### end of OpenCL C code #####################################################################
 
 
- string column_identify_column_kernel() { return R( // ########################## begin of OpenCL C code ####################################################################
+ string identify_column_kernel() { return R( // ########################## begin of OpenCL C code ####################################################################
 
 
-__kernel void identify_column_kernel(const unsigned int k, const unsigned int N, __global double* A, global int* ip, global int* ier) { // equivalent to "for(uint n=0u; n<N; n++) {", but executed in parallel
+__kernel void identify_column_kernel(const unsigned int k, const unsigned int N, __global double* A, __global int* ip, __global int* ier) { // equivalent to "for(uint n=0u; n<N; n++) {", but executed in parallel
 	
 	const uint i = get_global_id(0);
 
@@ -90,10 +81,10 @@ __kernel void identify_column_kernel(const unsigned int k, const unsigned int N,
 
 
 
- string column_swap_kernel_code() { return R( // ########################## begin of OpenCL C code ####################################################################
+ string swap_kernel_code() { return R( // ########################## begin of OpenCL C code ####################################################################
 
 
-__kernel void swap_kernel(const unsigned int k, __global double* b, __global int* ip) { // equivalent to "for(uint n=0u; n<N; n++) {", but executed in parallel
+__kernel void swap_kernel(const uint k, __global double* b, __global int* ip) { // equivalent to "for(uint n=0u; n<N; n++) {", but executed in parallel
 	
 	int m = ip[k];
 	double t = b[m];
@@ -109,7 +100,7 @@ __kernel void swap_kernel(const unsigned int k, __global double* b, __global int
 
 
 
- string column_forward_substitution() { return R( // ########################## begin of OpenCL C code ####################################################################
+ string forward_substitution() { return R( // ########################## begin of OpenCL C code ####################################################################
 
 
 __kernel void forward_substitution_kernel(const unsigned int k, const unsigned int N, __global double* A, __global double* b) { // equivalent to "for(uint n=0u; n<N; n++) {", but executed in parallel
@@ -126,7 +117,7 @@ __kernel void forward_substitution_kernel(const unsigned int k, const unsigned i
 );} // ############################################################### end of OpenCL C code #####################################################################
 
 
- string column_devide_kernel_code() { return R( // ########################## begin of OpenCL C code ####################################################################
+ string devide_kernel_code() { return R( // ########################## begin of OpenCL C code ####################################################################
 
 
 __kernel void devide_kernel(const unsigned int k, const unsigned int N, __global double* A, __global double* b) { // equivalent to "for(uint n=0u; n<N; n++) {", but executed in parallel
@@ -140,14 +131,14 @@ __kernel void devide_kernel(const unsigned int k, const unsigned int N, __global
 );} // ############################################################### end of OpenCL C code #####################################################################
 
 
- string column_back_substitution() { return R( // ########################## begin of OpenCL C code ####################################################################
+ string back_substitution() { return R( // ########################## begin of OpenCL C code ####################################################################
 
 
 __kernel void back_substitution_kernel(const unsigned int k, const unsigned int N, __global double* A, __global double* b) { // equivalent to "for(uint n=0u; n<N; n++) {", but executed in parallel
 	
 	const uint i = get_global_id(0);
 
-	uint kb = N - k - 1;
+	const uint kb = N - k - 1;
 
 	if (i >= 0 && i < kb) {
 		b[i] += A[i + N * kb] * -b[kb];

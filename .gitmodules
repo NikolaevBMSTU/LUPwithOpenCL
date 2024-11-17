@@ -1,0 +1,4 @@
+[submodule "external/ViennaCL"]
+	path = external/ViennaCL
+	url = https://github.com/viennacl/viennacl-dev.git
+    branch = master

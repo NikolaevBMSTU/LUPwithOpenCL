@@ -33,38 +33,38 @@ class Timer {
 };
 
 template<typename T>
-void print_vector(const uint N, T* A) {
-	for (uint i = 0; i < N; i++) {
+void print_vector(const std::size_t N, T* A) {
+	for (std::size_t i = 0; i < N; i++) {
 		std::cout << A[i] << " ";
 	}
 	std::cout << "\n";
 }
 
 template <typename T>
-void print_matrix(const uint N, const uint M, T* A) {
-	for (uint i = 0; i < N; i++) {
-		for (uint j = 0; j < M; j++)
+void print_matrix(const std::size_t N, const std::size_t M, T* A) {
+	for (std::size_t i = 0; i < N; i++) {
+		for (std::size_t j = 0; j < M; j++)
 			std::cout << A[i*N+j] << " ";
 		std::cout << "\n";
 	}
 }
 
 template<typename T>
-void print_matrix(const uint N, const uint M, T** A) {
-	for (uint i = 0; i < N; i++) {
-		for (uint j = 0; j < M; j++)
+void print_matrix(const std::size_t N, const std::size_t M, T** A) {
+	for (std::size_t i = 0; i < N; i++) {
+		for (std::size_t j = 0; j < M; j++)
 			std::cout << A[i][j] << " ";
 		std::cout << "\n";
 	}
 }
 
 template<typename T>
-void print_matrix_along(const uint N, const uint M, T** A, T** B) {
-	for (uint i = 0; i < N; i++) {
-		for (uint j = 0; j < M; j++)
+void print_matrix_along(const std::size_t N, const std::size_t M, T** A, T** B) {
+	for (std::size_t i = 0; i < N; i++) {
+		for (std::size_t j = 0; j < M; j++)
 			std::cout << A[i][j] << " ";
 		std::cout << "\t\t";
-		for (uint j = 0; j < M; j++)
+		for (std::size_t j = 0; j < M; j++)
 			std::cout << B[i][j] << " ";
 		std::cout << "\n";
 	}
