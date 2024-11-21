@@ -184,12 +184,6 @@ void gpu_lup_benchmark(std::size_t N, double** ORIGIN, double* ORIGIN_VECTOR) {
 
     auto full_time = timer.get();
 
-    if (ier == 0) {
-        log_run("gpu_dec.result", transform_vendor_name(device.info.vendor), N, full_time);
-    } else {
-        std::cout << "Result code != 0, actual is " << ier << std::endl;
-    }
-
     std::cout << "Current time = " << full_time << " s" << std::endl;
     std::cout << "Average time = " << average_time_string("gpu_dec.result", N, transform_vendor_name(device.info.vendor), std::to_string(OPTIMIZATION_LEVEL)) << std::endl;
     std::cout << "Copy   to device time = " << solver.memory_to_device_time << " s" << std::endl;
@@ -223,5 +217,11 @@ void gpu_lup_benchmark(std::size_t N, double** ORIGIN, double* ORIGIN_VECTOR) {
     }
 
 #endif
+
+    if (ier == 0) {
+        log_run("gpu_dec.result", transform_vendor_name(device.info.vendor), N, full_time);
+    } else {
+        std::cout << "Result code != 0, actual is " << ier << std::endl;
+    }
 
 }

@@ -75,7 +75,11 @@ void print_matrix_along(const std::size_t N, const std::size_t M, T** A, T** B) 
 
 void log_run(const std::string file_name, const std::string vendor, const std::size_t size, const double result) {
 	std::ofstream outfile;
-	outfile.open(file_name, std::ios_base::app);
+	outfile.open(file_name, std::fstream::in | std::fstream::out | std::fstream::app);
+
+	if (!outfile) {
+		outfile.open(file_name, std::fstream::in | std::fstream::out | std::fstream::trunc);
+	}
 
 	auto now = std::chrono::system_clock::now();
 	std::time_t time = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());

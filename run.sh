@@ -1,17 +1,14 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
-TARGET="bin/OpenCL-Wrapper"
+TARGET="bin/benchmark"
 
-if [ $# -eq 0 ]; then
-    MATRIX_SIZE=576
-else
-	MATRIX_SIZE=$1
-fi
+COUNT=3
 
-for size in 576
+for SIZE in 576
 do
-	for j in 1 .. 1
+	for j in 1 .. ${COUNT}
 	do
-		${TARGET} ${size}
+		echo 
+		${TARGET} ${SIZE}
 	done
 done

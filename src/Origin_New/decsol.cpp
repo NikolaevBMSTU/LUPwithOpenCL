@@ -22,6 +22,8 @@ code provided by:
 #include "decsol.hpp"
 #include <cmath>
 
+#include <omp.h>
+
 int dec_row(const int n, double *A, int *ip)
 {
 
@@ -77,14 +79,19 @@ int dec_row(const int n, double *A, int *ip)
 				return (ier);
 			}
 			t = 1.0/t;
-			for (int i = kp1; i < n; ++i) A[i + n * k] *= -t;
+
+			#pragma omp parallel for num_threads(4)
+			for (int i = kp1; i < n; ++i)
+				A[i + n * k] *= -t;
+
+			#pragma omp parallel for num_threads(4)
 			for (int j = kp1; j < n; ++j) {
 				t = A[m + n * j];
 				A[m + n * j] = A[k + n * j];
 				A[k + n * j] = t;
 				if (t != 0.0)
 					for (int i = kp1; i < n; ++i)
-						A[i + n * j] += A[i + n * k]*t;
+						A[i + n * j] += A[i + n * k] * t;
 			}
 		}
 	}
@@ -202,7 +209,12 @@ int dec_column(const int n, double *A, int *ip)
 				return (ier);
 			}
 			t = 1.0/t;
-			for (int i = kp1; i < n; ++i) A[i * n + k] *= -t;
+
+			#pragma omp parallel for num_threads(4)
+			for (int i = kp1; i < n; ++i)
+				A[i * n + k] *= -t;
+
+			#pragma omp parallel for num_threads(4)
 			for (int j = kp1; j < n; ++j) {
 				t = A[m * n + j];
 				A[m * n + j] = A[k * n + j];

@@ -1,14 +1,6 @@
-// extern "C" {
-//     #include <lapacke.h>
-// }
-
-extern "C" int dgesv_( int matrix_order, int n, int nrhs,
-                          double* a, int lda, int* ipiv,
-                          double* b, int ldb );
+#include <lapacke.h>
 
 #include "../utils.hpp"
-
-#define LAPACK_COL_MAJOR 101 // перепутано
 
 void lapack_benchmark(std::size_t N, double** ORIGIN, double* ORIGIN_VECTOR) {
     
@@ -17,7 +9,8 @@ void lapack_benchmark(std::size_t N, double** ORIGIN, double* ORIGIN_VECTOR) {
     std::cout << "======= LAPACKE =======" << std::endl;
     std::cout << "=======================" << std::endl << std::endl;
 
-    double* CPU_A  = new double[N * N];
+    std::unique_ptr<double[]> CPU_A = std::make_unique<double[]>(N * N);
+    // double* CPU_A  = new double[N * N];
     double* CPU_b  = new double[N];
     int*	CPU_ip = new int[N];
     int CPU_ier = 0;
@@ -25,7 +18,7 @@ void lapack_benchmark(std::size_t N, double** ORIGIN, double* ORIGIN_VECTOR) {
     // initialize memory
     for(std::size_t i = 0; i < N; i++) {
         for (std::size_t j = 0; j < N; j++)
-            CPU_A[i + N * j] = ORIGIN[i][j]; // модель хранения по строкам
+            CPU_A[i + N * j] = ORIGIN[i][j]; // модель хранения по столбцам
 
         CPU_b[i] = ORIGIN_VECTOR[i];
         CPU_ip[i] = i;
@@ -38,7 +31,7 @@ void lapack_benchmark(std::size_t N, double** ORIGIN, double* ORIGIN_VECTOR) {
     Timer timer {};
 
     timer.start();
-    CPU_ier = dgesv_(LAPACK_COL_MAJOR, N, 1, CPU_A, N, CPU_ip, CPU_b, 1);
+    CPU_ier = LAPACKE_dgesv(LAPACK_ROW_MAJOR, N, 1, CPU_A.get(), N, CPU_ip, CPU_b, 1);
     if (CPU_ier != 0) {
         throw std::runtime_error("Solution was not successful. Error code " + std::to_string(CPU_ier));
     }
@@ -53,24 +46,21 @@ void lapack_benchmark(std::size_t N, double** ORIGIN, double* ORIGIN_VECTOR) {
 
 #ifdef CHECK_SOLUTION
 
-    // for (std::size_t i = 0; i < N; i++) {
+    for (std::size_t i = 0; i < N; i++) {
 
-    //     double res { 0 };
+        double res { 0 };
 
-    //     for (std::size_t j = 0; j < N; j++) {
-    //         res += ORIGIN[i][j] * CPU_b[j];
-    //     }
+        for (std::size_t j = 0; j < N; j++) {
+            res += ORIGIN[i][j] * CPU_b[j];
+        }
 
-    //     if (std::abs((res - ORIGIN_VECTOR[i]) / ORIGIN_VECTOR[i]) > 1e-6)
-    //             throw std::runtime_error("Wrong solution result at i = " + std::to_string(i) +
-    //                 " Expected: " + std::to_string(ORIGIN_VECTOR[i]) + " but actual is " + std::to_string(res));
-    // }
+        if (std::abs((res - ORIGIN_VECTOR[i]) / ORIGIN_VECTOR[i]) > 1e-6)
+                throw std::runtime_error("Wrong solution result at i = " + std::to_string(i) +
+                    " Expected: " + std::to_string(ORIGIN_VECTOR[i]) + " but actual is " + std::to_string(res));
+    }
 
 #endif
 
     log_run("lapack.result", "CPU", N, elapsed_time);
-
-    // delete[] CPU_A;
-    // delete[] CPU_b;
 
 }
