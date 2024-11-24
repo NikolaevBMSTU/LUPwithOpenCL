@@ -4,6 +4,7 @@
 *.vscode
 
 # Directory for buildet files
+external
 bin
 build
 CMakeFiles

@@ -24,17 +24,26 @@ void viennacl_benchmark(std::size_t N, double** ORIGIN, double* ORIGIN_VECTOR) {
     std::cout << "========================" << std::endl;
     std::cout << std::endl;
 
-    viennacl::matrix<double, viennacl::row_major> vcl_A(N, N);
 
-    viennacl::vector<double> vcl_vec_B(N);
+    std::unique_ptr<double[]> ORIGIN_COPY = std::make_unique<double[]>(N * N);
+    std::unique_ptr<double[]> ORIGIN_VECTOR_COPY = std::make_unique<double[]>(N);
+
+    std::cout << viennacl::ocl::current_device().info() << std::endl;
 
     for (std::size_t i = 0; i < N; i++) {
         for(std::size_t j = 0; j < N; j++) {
-            vcl_A(i, j) = ORIGIN[i][j]; // initialize memory
+            ORIGIN_COPY[i + j * N] = ORIGIN[i][j]; // initialize memory
         }
 
-        vcl_vec_B(i) = ORIGIN_VECTOR[i];
+        ORIGIN_VECTOR_COPY[i] = ORIGIN_VECTOR[i];
     }
+
+    viennacl::matrix<double, viennacl::column_major> vcl_A(ORIGIN_COPY.get(), viennacl::memory_types::MAIN_MEMORY, N, N);
+    viennacl::vector<double> vcl_vec_B(ORIGIN_VECTOR_COPY.get(), viennacl::memory_types::MAIN_MEMORY, N);
+
+    std::cout << "Matrix size = " << N << "x" << N << std::endl;
+    std::cout << "Elements number = " << N * N << std::endl;
+    std::cout << "Memory = " << (double)(N * (N + 1) * sizeof(double) + (N + 1) * sizeof(int))  / 1024 / 1024 << " Mb" << std::endl;
 
     Timer timer;
     timer.start();
@@ -47,8 +56,6 @@ void viennacl_benchmark(std::size_t N, double** ORIGIN, double* ORIGIN_VECTOR) {
     timer.get();
 
     auto full_time = timer.get();
-
-    std::cout << viennacl::ocl::current_device().info() << std::endl;
 
     std::cout << "Current time = " << full_time << " s" << std::endl;
     std::cout << "Average time = " << average_time_string("gpu_vienna.result", N, transform_vendor_name(viennacl::ocl::current_device().vendor()),

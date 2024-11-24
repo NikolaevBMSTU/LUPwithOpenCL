@@ -23,7 +23,7 @@ void lapack_benchmark(std::size_t N, double** ORIGIN, double* ORIGIN_VECTOR) {
     // initialize memory
     for (std::size_t i = 0; i < N; i++) {
         for (std::size_t j = 0; j < N; j++)
-            CPU_A[i + N * j] = ORIGIN[i][j]; // модель хранения по строкам
+            CPU_A[i + N * j] = ORIGIN[i][j]; // модель хранения по столбцам
 
         CPU_b[i] = ORIGIN_VECTOR[i];
         CPU_ip[i] = i;
@@ -44,17 +44,6 @@ void lapack_benchmark(std::size_t N, double** ORIGIN, double* ORIGIN_VECTOR) {
 
     std::cout << "Current time = " << elapsed_time << " s" << std::endl;
     std::cout << "Average time = " << average_time_string("lapack.result", N, "CPU", std::to_string(OPTIMIZATION_LEVEL)) << std::endl;
-
-    // print_matrix(N, N, ORIGIN);
-    // std::cout << std::endl;
-    // print_vector(N, ORIGIN_VECTOR);
-
-    // std::cout << std::endl;
-
-    // print_matrix(N, N, CPU_A.get());
-    // std::cout << std::endl;
-    // print_vector(N, CPU_ip.get());
-    // print_vector(N, CPU_b.get());
 
 #ifdef CHECK_SOLUTION
 

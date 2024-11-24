@@ -42,16 +42,8 @@ void decsol_benchmark(std::size_t N, double** ORIGIN, double* ORIGIN_VECTOR) {
 	sol(N, CPU_A, CPU_b, CPU_ip);
 	auto elapsed_time = timer.get();
 
-	std::cout << "Ier = " << CPU_ier << std::endl;
 	std::cout << "Current time = " << elapsed_time << " s" << std::endl;
 	std::cout << "Average time = " << average_time_string("origin_dec.result", N, "CPU", std::to_string(OPTIMIZATION_LEVEL)) << std::endl;
-
-	// print_matrix(N, N, ORIGIN);
-	// std::cout << std::endl;
-	// print_matrix(N, N, CPU_A);
-	// std::cout << std::endl;
-	// print_vector(N, CPU_ip);
-	// print_vector(N, CPU_b);
 
 #ifdef CHECK_SOLUTION
 

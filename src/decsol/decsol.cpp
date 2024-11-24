@@ -24,7 +24,7 @@ code provided by:
 
 #include <omp.h>
 
-int dec_row(const int n, double *A, int *ip)
+int dec_column(const int n, double *A, int *ip)
 {
 
 /*-----------------------------------------------------------------------
@@ -103,9 +103,9 @@ int dec_row(const int n, double *A, int *ip)
 
 	return (ier);
 
-} //dec
+} //dec_column
 
-void sol_row(const int n, double *A, double *b, int *ip)
+void sol_column(const int n, double *A, double *b, int *ip)
 {
 
 /*-----------------------------------------------------------------------
@@ -151,10 +151,10 @@ void sol_row(const int n, double *A, double *b, int *ip)
 	
 	return;
 	
-} //sol_row
+} //sol_column
 
 
-int dec_column(const int n, double *A, int *ip)
+int dec_row(const int n, double *A, int *ip)
 {
 
 /*-----------------------------------------------------------------------
@@ -233,9 +233,9 @@ int dec_column(const int n, double *A, int *ip)
 
 	return (ier);
 
-} //dec_column
+} //dec_row
 
-void sol_column(const int n, double *A, double *b, int *ip)
+void sol_row(const int n, double *A, double *b, int *ip)
 {
 
 /*-----------------------------------------------------------------------
@@ -281,7 +281,7 @@ void sol_column(const int n, double *A, double *b, int *ip)
 	
 	return;
 	
-} //sol_column
+} //sol_row
 
 
 int decc_old(const int n, double **AR, double **AI, int *ip)

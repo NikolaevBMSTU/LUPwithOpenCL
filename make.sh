@@ -8,16 +8,42 @@ mkdir -p ${BUILD_DIR} # create directory for executable
 
 SRC="src/*.cpp src/decsol/*.cpp src/decsol_origin/*.cpp src/decsol_OpenCL/*.cpp src/OpenCL-Wrapper/*.cpp"
 INC="-I./external/OpenCL/include -I./external/ViennaCL -I./src/OpenCL-Wrapper"
-LIBPATH="-L./external/OpenCL/lib -L./external/OpenBLAS"
-LIB="-lOpenCL -pthread -llapacke -llapack -lopenblas -lgfortran -lquadmath"
+LIBPATH="-L./external/OpenCL/lib"
+LIB="-lOpenCL -pthread"
+
+
+if [ -z "${LAPACK_VENDOR}" ]; then
+	LAPACK_VENDOR=COMBINED
+fi
+
+if [[ ${LAPACK_VENDOR} =~ COMBINED ]]; then
+	LAPACK_VENDOR=LAPACK_OpenBLAS
+fi
+
+if [[ ${LAPACK_VENDOR} =~ LAPACK ]]; then
+	INC+=" -I./external/lapack/build/include"
+	LIBPATH+=" -L./external/lapack/build/lib"
+	LIB+=" -llapacke -llapack -lgfortran -lquadmath"
+	if ! [[ ${LAPACK_VENDOR} =~ OpenBLAS ]]; then LIB+=" -lblas"; fi
+fi
+
+if [[ ${LAPACK_VENDOR} =~ OpenBLAS ]]; then
+	INC+=" -I./external/OpenBLAS/lapack-netlib/LAPACKE/include"
+	LIBPATH+=" -L./external/OpenBLAS"
+	LIB+=" -lopenblas"
+fi
+
+if [[ ${LAPACK_VENDOR} =~ MKL ]]; then
+	INC+=" MKL path!!! "
+	LIBPATH+=" MKL path!!1 "
+	LIB+=" -llapack"
+fi
 
 #Compiler and Linker
 if [[ $(uname -a) =~ Cygwin ]]; then
 	echo Building for Cygwin...
 	CXX=x86_64-w64-mingw32-g++
 	LIB+=" -static"
-	INC+=" -IF:\\cygwin64\\home\\Vitaly\\.local\\lapack\\include"
-	LIBPATH+=" -LF:\\cygwin64\\home\\Vitaly\\.local\\lapack\\lib"
 elif [[ $(uname -a) =~ Linux ]]; then
 	echo Building for Linux...
 	CXX=g++
