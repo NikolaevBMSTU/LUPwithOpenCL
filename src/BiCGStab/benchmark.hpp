@@ -3,6 +3,11 @@
 
 #include <iostream>
 
+#include <boost/numeric/ublas/matrix.hpp>
+#include <boost/numeric/ublas/vector.hpp>
+
+namespace ublas = boost::numeric::ublas;
+
 #include "iml.hpp"
 #include "viennacl.hpp"
 
@@ -12,7 +17,7 @@ void iml_bicgstab_benchmark(std::size_t N, double** ORIGIN, double* ORIGIN_VECTO
 
 	std::cout << std::endl;
 	std::cout << "=========================" << std::endl;
-	std::cout << "===== IML BiCGStab =====" << std::endl;
+	std::cout << "===== IML BiCGStab ======" << std::endl;
 	std::cout << "=========================" << std::endl << std::endl;
 
 	std::cout << "Matrix size = " << N << "x" << N << std::endl;

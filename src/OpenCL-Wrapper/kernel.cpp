@@ -1,5 +1,4 @@
-#include "kernel.hpp" // note: unbalanced round brackets () are not allowed and string literals can't be arbitrarily long, so periodically interrupt with )+R(
-// #include "syntax_highlight.hpp"
+#include "kernel.hpp" 
 
 string get_opencl_c_code(std::string r) {
 	r = replace(r, " ", "\n"); // replace all spaces by new lines

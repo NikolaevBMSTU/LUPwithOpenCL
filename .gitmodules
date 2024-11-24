@@ -2,3 +2,11 @@
 	path = external/ViennaCL
 	url = https://github.com/viennacl/viennacl-dev.git
     branch = master
+[submodule "external/LAPACK"]
+	path = external/LAPACK
+	url = https://github.com/Reference-LAPACK/lapack
+	branch = master
+[submodule "external/OpenBLAS"]
+	path = external/OpenBLAS
+	url = https://github.com/OpenMathLib/OpenBLAS.git
+	branch = master

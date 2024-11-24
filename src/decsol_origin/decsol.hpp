@@ -1,3 +1,9 @@
+/*
+    It is a part of origin decsol.h that contains only functions for
+    LUP decomposition of dense squere matrix for real (doulbe) and complex
+    numbers (two matrix of [A + i*B], both double)
+*/
+
 /***************************************************************************
                                 decsol.h
                              -------------------

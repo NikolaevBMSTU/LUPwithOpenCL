@@ -1,4 +1,6 @@
+=================================================
 This code was modified by Vitaly Nikolaev at 2024
+=================================================
 
 Copyright (c) 2022-2024 Dr. Moritz Lehmann
 

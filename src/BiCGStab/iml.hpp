@@ -1,5 +1,5 @@
-#ifndef BICGSTAB_H_
-#define BICGSTAB_H_
+#ifndef IML_BICGSTAB_H_
+#define IML_BICGSTAB_H_
 
 #include <tuple>
 
