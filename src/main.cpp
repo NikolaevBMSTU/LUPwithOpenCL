@@ -4,10 +4,10 @@
 #define CHECK_SOLUTION
 
 // #define CPU_DECSOL_ORIGIN_BENCHMARK
-#define LAPACK_BENCHMARK
+// #define LAPACK_BENCHMARK
 
 // #define CPU_DECSOL_ROW_BENCHMARK
-// #define CPU_DECSOL_COLUMN_BENCHMARK
+#define CPU_DECSOL_COLUMN_BENCHMARK
 
 // #define GPU_DECSOL_ROW_BENCHMARK
 // #define GPU_DECSOL_COLUMN_BENCHMARK
@@ -70,7 +70,7 @@ int main(int argc, char const *argv[]) {
 	std::srand(s);
 	double** ORIGIN = new double*[N];
 	double* ORIGIN_VECTOR = new double[N];
-	for(std::size_t i = 0; i < N; i++) {
+	for (std::size_t i = 0; i < N; i++) {
 
 		ORIGIN[i] = new double[N];
 		for (std::size_t j = 0; j < N; j++)

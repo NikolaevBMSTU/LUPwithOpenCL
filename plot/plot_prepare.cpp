@@ -6,7 +6,7 @@
 #include <unordered_map>
 #include <set>
 
-#include "src/utils.hpp"
+#include "../src/utils.hpp"
 
 void prepare(std::string input_file, std::string output_file, std::string vendor_name) {
 	std::ifstream input;

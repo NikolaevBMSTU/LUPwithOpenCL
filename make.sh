@@ -55,10 +55,14 @@ fi
 
 OLEVEL=3
 # DEBUG="-g"
-# -fopenmp 
-DIRECTIVES="-DOPTIMIZATION_LEVEL=${OLEVEL} -DVIENNACL_WITH_OPENCL"
+
+DIRECTIVES="-DOPTIMIZATION_LEVEL=${OLEVEL} -DVIENNACL_WITH_OPENCL -march=native"
 WARNINGS="-Wno-comment -Wno-ignored-attributes"
 
+# Использоова
+if ! [[ -z "${OpenMP}" ]]; then
+	DIRECTIVES+=" -fopenmp"
+fi
 
 if [ $# -eq 0 ]; then
     MATRIX_SIZE=3600

@@ -24,6 +24,8 @@ code provided by:
 
 #include <omp.h>
 
+#define DECSOL_THREADS_NUM 8
+
 int dec_column(const int n, double *A, int *ip)
 {
 
@@ -53,44 +55,54 @@ int dec_column(const int n, double *A, int *ip)
 		C.A.C.M. 15 (1972), p. 274.
 -----------------------------------------------------------------------*/
 
-	int kp1, m, nm1, k, ier;
+	int m, k, ier;
 	double t;
 
 	ier = 0;
 	ip[n-1] = 1;
 	if (n != 1) {
-		nm1 = n - 1;
-		for (k = 0; k < nm1; ++k) {
-			kp1 = k + 1;
-			m = k;
-			for (int i = kp1; i < n; ++i) {
-				if (fabs(A[i + n * k]) > fabs(A[m + n * k])) m = i;
+		for (k = 0; k < n - 1; ++k) {
+
+			struct MyMax {
+				double max;
+				int index;
+			} myMaxStruct {A[k + n * k], k};
+
+			#pragma omp declare reduction(maximo : struct MyMax : omp_out = omp_in.max > omp_out.max ? omp_in : omp_out)
+
+			#pragma omp parallel for reduction(maximo : myMaxStruct)
+			for (int i = k + 1; i < n; ++i) {
+				if (fabs(A[i + n * k]) > fabs(myMaxStruct.max)) {
+					myMaxStruct.max = A[i + n * k];
+					myMaxStruct.index = i;
+				};
 			}
+
+			m = myMaxStruct.index;
+			t = myMaxStruct.max;
+
 			ip[k] = m;
-			t = A[m + n * k];
 			if (m != k) {
 				ip[n-1] = -ip[n-1];
-				A[m + n * k] = A[k + n * k];
-				A[k + n * k] = t;
+				std::swap(A[k + n * k], A[m + n * k]);
 			}
 			if (t == 0.0) {
 				ier = k;
 				ip[n-1] = 0;
-				return (ier);
+				return ier;
 			}
 			t = 1.0/t;
 
-			#pragma omp parallel for num_threads(4)
-			for (int i = kp1; i < n; ++i)
+			#pragma omp parallel for num_threads(DECSOL_THREADS_NUM)
+			for (std::size_t i = k + 1; i < n; ++i)
 				A[i + n * k] *= -t;
 
-			#pragma omp parallel for num_threads(4)
-			for (int j = kp1; j < n; ++j) {
-				t = A[m + n * j];
-				A[m + n * j] = A[k + n * j];
-				A[k + n * j] = t;
+			#pragma omp parallel for num_threads(DECSOL_THREADS_NUM)
+			for (int j = k + 1; j < n; ++j) {
+				const double t = A[m + n * j];
+				std::swap(A[m + n * j], A[k + n * j]);
 				if (t != 0.0)
-					for (int i = kp1; i < n; ++i)
+					for (int i = k + 1; i < n; ++i)
 						A[i + n * j] += A[i + n * k] * t;
 			}
 		}
@@ -124,29 +136,33 @@ void sol_column(const int n, double *A, double *b, int *ip)
 
 -----------------------------------------------------------------------*/
 
-	int m, kb, km1, nm1, kp1;
+	int m;
 	double t;
 
 	if (n != 1) {
-		nm1 = n - 1;
-		for (int k = 0; k < nm1; ++k) {
-			kp1 = k + 1;
+		for (int k = 0; k < n - 1; ++k) {
+
 			m = ip[k];
 			t = b[m];
-			b[m] = b[k];
-			b[k] = t;
-			for (int i = kp1; i < n; ++i)
-				b[i] += A[i + n * k]*t;
+
+			std::swap(b[m], b[k]);
+
+			#pragma omp parallel for num_threads(DECSOL_THREADS_NUM)
+			for (int i = k + 1; i < n; ++i)
+				b[i] += A[i + n * k] * t;
+
 		}
-		for (int k = 0; k < nm1; ++k) {
-			km1 = n - k - 2;
-			kb = km1 + 1;
+
+		for (int k = 0; k < n - 1; ++k) {
+			const int kb = n - k - 1;
 			b[kb] = b[kb]/A[kb + n * kb];
 			t = -b[kb];
-			for (int i = 0; i <= km1; ++i) 
-				b[i] += A[i + n * kb]*t;
+			#pragma omp parallel for num_threads(DECSOL_THREADS_NUM)
+			for (int i = 0; i < n - k - 1; ++i) 
+				b[i] += A[i + n * kb] * t;
 		}
 	}
+	
 	b[0] = b[0]/A[0];
 	
 	return;
@@ -210,11 +226,9 @@ int dec_row(const int n, double *A, int *ip)
 			}
 			t = 1.0/t;
 
-			#pragma omp parallel for num_threads(4)
 			for (int i = kp1; i < n; ++i)
 				A[i * n + k] *= -t;
 
-			#pragma omp parallel for num_threads(4)
 			for (int j = kp1; j < n; ++j) {
 				t = A[m * n + j];
 				A[m * n + j] = A[k * n + j];

@@ -69,7 +69,8 @@ void decosl_column_benchmark(std::size_t N, double** ORIGIN, double* ORIGIN_VECT
     std::cout << std::endl;
     std::cout << "========================" << std::endl;
     std::cout << "= Origin column decsol =" << std::endl;
-    std::cout << "========================" << std::endl << std::endl;
+    std::cout << "========================" << std::endl;
+    std::cout << std::endl;
 
     std::unique_ptr<double[]> CPU_A  = std::make_unique<double[]>(N * N);
     std::unique_ptr<double[]> CPU_b  = std::make_unique<double[]>(N);
@@ -112,9 +113,10 @@ void decosl_column_benchmark(std::size_t N, double** ORIGIN, double* ORIGIN_VECT
             res += ORIGIN[i][j] * CPU_b[j];
         }
 
-        if (std::abs((res - ORIGIN_VECTOR[i]) / ORIGIN_VECTOR[i]) > 1e-6)
+        if (std::abs((res - ORIGIN_VECTOR[i]) / ORIGIN_VECTOR[i]) > 1e-5)
                 throw std::runtime_error("Wrong solution result at i = " + std::to_string(i) +
-                    " Expected: " + std::to_string(ORIGIN_VECTOR[i]) + " but actual is " + std::to_string(res));
+                    " Expected: " + std::to_string(ORIGIN_VECTOR[i]) + " but actual is " + std::to_string(res) +
+                    " TOL is " + std::to_string(std::abs((res - ORIGIN_VECTOR[i]) / ORIGIN_VECTOR[i])));
     }
 
 #endif

@@ -7,7 +7,7 @@ COUNT=5
 POINTS_FULL=(576 1200 1500 2500 3200 3600 5000 6000 7600)
 POINTS_SHORT=(7600)
 
-for SIZE in "${POINTS_SHORT[@]}"
+for SIZE in "${POINTS_FULL[@]}"
 do
 	for (( j=1; j<=${COUNT}; j++ )) ;
 	do
@@ -16,7 +16,7 @@ do
 
 		if [[ $? != 0 ]]; then exit 1; fi 	# Выход если итерация завершилась с ошибкой
 
-		sleep 1s 	# Задержка для "охлаждения"
+		sleep 5s 	# Задержка для "охлаждения"
 	done
 	# sleep 2m
 done
