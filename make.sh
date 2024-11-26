@@ -34,8 +34,8 @@ if [[ ${LAPACK_VENDOR} =~ OpenBLAS ]]; then
 fi
 
 if [[ ${LAPACK_VENDOR} =~ MKL ]]; then
-	INC+=" MKL path!!! "
-	LIBPATH+=" MKL path!!1 "
+	INC+=" -I/usr/include/mkl"
+	LIBPATH+=" -L/usr/lib/x86_64-linux-gnu/mkl/"
 	LIB+=" -llapack"
 fi
 
