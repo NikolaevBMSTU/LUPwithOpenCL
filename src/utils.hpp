@@ -159,7 +159,7 @@ std::string average_time_string(const std::string file_name, const std::size_t c
 		const std::string vendor_name, const std::string optimization_level) {
 
 	auto [time, error] = average_time(file_name, current_size, vendor_name, optimization_level);
-	return std::to_string(time) + " " + u8"±" + " " + std::to_string(error);
+	return std::to_string(time) + " ± " + std::to_string(error);
 }
 
 std::string transform_vendor_name(const std::string vendor_name) {

@@ -71,7 +71,7 @@ else
 fi
 
 # Compilation
-$CXX ${SRC} -o ${BUILD_DIR}/${TARGET} -std=c++17 ${DEBUG} -O${OLEVEL} ${DIRECTIVES} ${WARNINGS} ${INC} ${LIBPATH} ${LIB}
+$CXX ${SRC} -o ${BUILD_DIR}/${TARGET} -std=c++20 ${DEBUG} -O${OLEVEL} ${DIRECTIVES} ${WARNINGS} ${INC} ${LIBPATH} ${LIB}
 
 
 # Test run
