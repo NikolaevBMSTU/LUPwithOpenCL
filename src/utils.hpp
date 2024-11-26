@@ -120,7 +120,7 @@ std::tuple<double, double> average_time(const std::string file_name, const std::
 		const std::string vendor_name, const std::string optimization_level) {
 	std::ifstream file;
 	file.open(file_name);
-	if (!file.is_open()) exit(1);
+	if (!file.is_open()) return {0.0, 0.0};
 
 	std::size_t count { 0 };
 	double sum_time { 0.0 };
@@ -157,6 +157,7 @@ std::tuple<double, double> average_time(const std::string file_name, const std::
 
 std::string average_time_string(const std::string file_name, const std::size_t current_size,
 		const std::string vendor_name, const std::string optimization_level) {
+
 	auto [time, error] = average_time(file_name, current_size, vendor_name, optimization_level);
 	return std::to_string(time) + " " + u8"±" + " " + std::to_string(error);
 }
